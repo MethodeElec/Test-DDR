@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test DDR</title>
+<style>
+    /* ... (Styles CSS non modifiés) ... */
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Arial,sans-serif;background:linear-gradient(135deg,#87CEEB 0%,#E0F6FF 50%,#B0E0E6 100%);min-height:100vh;color:#333}
+    .main-content{padding:50px 20px;text-align:center;max-width:1100px;margin:0 auto}
+    .main-content h1{font-size:2.5rem;margin-bottom:30px;color:#2c3e50;text-shadow:0 2px 4px rgba(0,0,0,.1)}
+
+    /* Date en haut à gauche */
+    .today-badge{position:fixed;top:16px;left:16px;z-index:120;background:rgba(255,255,255,.97);padding:10px 16px;border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.12);font-weight:900;font-size:2rem;color:#2c3e50}
+
+    /* Boutons */
+    .import-btn{position:fixed;bottom:30px;left:30px;background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;border:none;padding:12px 16px;border-radius:12px;font-size:.9rem;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 4px 15px rgba(231,76,60,.4);transition:.3s;z-index:99;width:200px;max-width:200px;min-height:56px;text-align:center}
+    .import-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(231,76,60,.5)}
+    .import-btn.imported{background:linear-gradient(135deg,#27ae60,#229954)}
+    
+    /* NOUVEAUX STYLES POUR LES DEUX BOUTONS D'ACTION */
+    .action-buttons-container{position:fixed;bottom:30px;left:250px;display:flex;gap:20px;z-index:99}
+    
+    .save-btn-container{display:flex;flex-direction:column;align-items:center;z-index:99}
+    .save-info{background:rgba(255,255,255,.95);color:#2c3e50;padding:4px 8px;border-radius:6px;font-size:.75rem;font-weight:bold;margin-bottom:5px;box-shadow:0 2px 8px rgba(0,0,0,.1);backdrop-filter:blur(10px);border:1px solid rgba(135,206,235,.3);white-space:nowrap}
+    .save-btn-bottom{background:linear-gradient(135deg,#3498db,#2980b9);color:#fff;border:none;padding:12px 16px;border-radius:12px;font-size:.9rem;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 4px 15px rgba(52,152,219,.4);transition:.3s;width:200px;max-width:200px;min-height:56px;text-align:center;opacity:.5;pointer-events:none}
+    .save-btn-bottom.enabled{opacity:1;pointer-events:auto}
+    .save-btn-bottom.enabled:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(52,152,219,.5);background:linear-gradient(135deg,#2980b9,#1f5f8b)}
+    .save-btn-bottom.saved{background:linear-gradient(135deg,#27ae60,#229954);box-shadow:0 4px 15px rgba(39,174,96,.4)}
+
+    /* Bouton Préparation */
+    .prep-btn-container{display:flex;flex-direction:column;align-items:center;z-index:99}
+    .prep-btn-bottom{
+        background:linear-gradient(135deg,#9b59b6,#8e44ad); /* Violet */
+        color:#fff;border:none;padding:12px 16px;border-radius:12px;
+        font-size:.9rem;font-weight:bold;cursor:pointer;
+        display:flex;align-items:center;justify-content:center;gap:6px;
+        box-shadow:0 4px 15px rgba(155,89,182,.4);transition:.3s;
+        width:200px;max-width:200px;min-height:56px;text-align:center;
+        opacity:.5;pointer-events:none; /* Inactif par défaut */
+    }
+    .prep-btn-bottom.enabled{opacity:1;pointer-events:auto;cursor:pointer}
+    .prep-btn-bottom.enabled:hover{
+        transform:translateY(-2px);
+        box-shadow:0 6px 20px rgba(155,89,182,.5);
+        background:linear-gradient(135deg,#8e44ad,#6c3483);
+    }
+    
+    /* MODIFICATION ICI pour rendre le bouton transparent/inactif */
+    .config-btn{
+        position:fixed;bottom:30px;right:30px;width:60px;height:60px;
+        background:none; /* Supprime le fond */
+        border:none;border-radius:50%;cursor:default; /* Change le curseur en flèche par défaut */
+        box-shadow:none; /* Supprime l'ombre */
+        transition:.3s;display:flex;align-items:center;justify-content:center;z-index:100;
+        opacity:0.3; /* Rendre transparent */
+        pointer-events:none; /* Rendre inutilisable (bloque le clic) */
+    }
+    
+    .status-message{margin-top:20px;padding:15px;border-radius:8px;font-weight:bold;opacity:0;transition:opacity .3s}
+    .status-message.show{opacity:1}
+    .status-message.success{background:rgba(46,204,113,.1);color:#27ae60;border-left:4px solid #2ecc71}
+    .status-message.error{background:rgba(231,76,60,.1);color:#e74c3c;border-left:4px solid #e74c3c}
+
+    /* Modal import */
+    .modal{display:none;position:fixed;z-index:1000;inset:0;background-color:rgba(0,0,0,.5);backdrop-filter:blur(5px)}
+    .modal.show{display:flex;align-items:center;justify-content:center}
+    .modal-content{background:rgba(255,255,255,.95);backdrop-filter:blur(15px);border-radius:20px;padding:30px;width:90%;max-width:500px;box-shadow:0 25px 50px rgba(0,0,0,.2);position:relative}
+    .close{position:absolute;top:15px;right:20px;font-size:28px;font-weight:bold;cursor:pointer;color:#aaa}
+    .file-drop-zone{border:2px dashed #87CEEB;border-radius:15px;padding:40px 20px;text-align:center;background:rgba(135,206,235,.05);cursor:pointer}
+    .file-drop-zone p{margin:6px 0}.or-text{opacity:.8;font-style:italic}
+
+    /* KPIs côte à côte */
+    .kpi-row{display:flex;gap:32px;justify-content:center;align-items:flex-end;flex-wrap:nowrap;margin-top:12px}
+    .kpi2{display:none}.kpi2 .pct{font-size:1.25rem;font-weight:800}
+    .kpi2 .colWrap{margin:10px auto 0;width:80px;height:220px;border-radius:8px;background:#eef2f7;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);display:flex;align-items:flex-end;justify-content:center;padding:8px;position:relative}
+    .kpi2 .bar{width:40px;height:0;border-radius:6px 6px 4px 4px;background:#ccc;transition:height .6s ease,background .3s ease}
+    .kpi2 .title{margin-top:6px;color:#555; font-weight: 900;} 
+    
+    .kpi2 .colWrap::before{content:"";position:absolute;left:6px;right:6px;height:1px;background:rgba(0,0,0,.12);bottom:calc(220px * 0.50)}
+    .kpi2 .colWrap::after{content:"";position:absolute;left:6px;right:6px;height:1px;background:rgba(0,0,0,.12);bottom:calc(220px * 0.20)}
+    .kpiDisc{display:none}
+    
+    .kpiDisc .title{margin-top:10px;color:#555; font-weight: 900;}
+    
+    .kpiDisc .wrap{display:flex;align-items:center;gap:18px}
+    .progress-disc{width:140px;height:140px;border-radius:50%;background:conic-gradient(#27ae60 0deg,#e6eef5 0deg);display:grid;place-items:center;margin:0 auto}
+    .progress-disc .inner{width:100px;height:100px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1.4rem}
+    .progress-stats{text-align:left;background:rgba(255,255,255,.97);border-radius:14px;padding:14px 16px;box-shadow:0 6px 20px rgba(0,0,0,.12);min-width:230px}
+    .progress-stats .row{margin:8px 0;line-height:1.1}
+    .progress-stats .label{color:#263238;font-weight:800;font-size:1.2rem}
+    .progress-stats .val{font-weight:900;font-size:1.9rem}
+
+    /* Courbe progression réelle */
+    .chart-block{margin:28px auto 6px;background:rgba(255,255,255,.95);border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.12);padding:12px 14px;max-width:1100px}
+    .chart-title{font-weight:800;color:#2c3e50;margin-bottom:8px}
+    .chart-legend{display:flex;gap:18px;justify-content:center;margin:6px 0 8px}
+    .key{display:inline-flex;align-items:center;gap:6px;font-weight:700;color:#34495e}
+    .dot{width:14px;height:4px;border-radius:2px;display:inline-block}
+    .dot.real{background:#2ecc71}
+    /* Ajout de la couleur pour la courbe théorique */
+    .dot.planned{background:#3498db}
+    svg#advChart{width:100%;height:340px;display:block}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<div class="today-badge" id="todayBadge">--/--/----</div>
+
+<div class="main-content">
+    <h1>Test DDR</h1>
+
+    <div class="kpi-row">
+        <div id="kpiConformite" class="kpi2">
+            <div class="pct" id="kpiPct">0%</div>
+            <div class="colWrap"><div class="bar" id="kpiBar"></div></div>
+            <div class="title">CONFORMITE</div>
+        </div>
+
+        <div id="kpiProgression" class="kpiDisc">
+            <div class="wrap">
+                <div class="progress-disc" id="disc"><div class="inner" id="discPct">0%</div></div>
+                <div class="progress-stats">
+                    <div class="row"><span class="label">DDR total planifié :</span> <span class="val" id="statTotal">0</span></div>
+                    <div class="row"><span class="label">Testés :</span> <span class="val" id="statTested">0</span></div>
+                </div>
+            </div>
+            <div class="title">PROGRESSION</div>
+        </div>
+    </div>
+
+    <div class="chart-block">
+        <div class="chart-legend">
+            <span class="key"><span class="dot real"></span>Progression réelle</span>
+            <span class="key"><span class="dot planned"></span>Progression théorique</span>
+        </div>
+        <svg id="advChart" viewBox="0 0 980 340" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+
+    <div class="status-message" id="statusMessage"></div>
+</div>
+
+<button class="import-btn" id="importBtn">Importer fichier Test DDR</button>
+
+<div class="action-buttons-container" id="actionButtonsContainer">
+    
+    <div class="save-btn-container" id="saveBtnContainer">
+        <div class="save-info" id="saveInfo" style="display:none;"><span id="saveDateTime"></span></div>
+        <button class="save-btn-bottom" id="saveMainBtn">Sauvegarder</button>
+    </div>
+
+    <div class="prep-btn-container" id="prepBtnContainer">
+        <button class="prep-btn-bottom" id="prepMainBtn">Préparation</button>
+    </div>
+</div>
+<button class="config-btn" id="configBtn">⚙️</button>
+
+<div class="modal" id="importModal">
+    <div class="modal-content">
+        <span class="close" id="closeImportBtn">&times;</span>
+        <h2>Importer fichier Test DDR</h2>
+        <div class="import-options">
+            <div class="file-drop-zone" id="fileDropZone">
+                <p>Glissez-déposez votre fichier Test DDR ici</p>
+                <p class="or-text">ou</p>
+                <button class="browse-btn" id="browseBtn">Parcourir les fichiers</button>
+                <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none;">
+            </div>
+            <div class="file-info" id="fileInfo" style="display:none;">
+                <p>Fichier sélectionné: <span id="fileName"></span></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="configModal">
+    <div class="modal-content">
+        <span class="close" id="closeBtn">&times;</span>
+        <h2>Configuration</h2>
+        <div class="config-options">
+            <p style="text-align:center;color:#666;font-style:italic;">Configuration en cours de développement...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentWorkbook=null, originalFileName=null;
+
+/**
+ * Fonction utilitaire de la librairie XLSX.js pour convertir une chaîne 
+ * binaire (Base64 décodée) en ArrayBuffer. Nécessaire pour la transmission via localStorage.
+ */
+function s2ab(s) { 
+    const buf = new ArrayBuffer(s.length);
+    const view = new Uint8Array(buf);
+    for (let i=0; i!==s.length; ++i) view[i] = s.charCodeAt(i) & 0xFF;
+    return buf;
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+    // Date
+    const todayBadge=document.getElementById('todayBadge');
+    // NOTE IMPORTANTE: Utiliser une date 'actuelle' cohérente pour le badge et les calculs
+    const now=new Date(); // Date réelle du système/contexte (21/10/2025)
+    todayBadge.textContent=now.toLocaleDateString('fr-FR');
+
+    // UI refs
+    const importBtn=document.getElementById('importBtn');
+    const importModal=document.getElementById('importModal');
+    const closeImportBtn=document.getElementById('closeImportBtn');
+    const fileInput=document.getElementById('fileInput');
+    const browseBtn=document.getElementById('browseBtn');
+    const fileDropZone=document.getElementById('fileDropZone');
+    const fileInfo=document.getElementById('fileInfo');
+    const fileName=document.getElementById('fileName');
+    const saveMainBtn=document.getElementById('saveMainBtn');
+    const prepMainBtn=document.getElementById('prepMainBtn'); // RÉFÉRENCE NOUVELLE
+    const saveInfo=document.getElementById('saveInfo');
+    const saveDateTime=document.getElementById('saveDateTime');
+    const statusMessage=document.getElementById('statusMessage');
+    
+    // Config Modal Refs 
+    const configModal=document.getElementById('configModal');
+    const closeConfigBtn=document.getElementById('closeBtn');
+
+    // KPI refs
+    const kpiRoot=document.getElementById('kpiConformite');
+    const kpiBar=document.getElementById('kpiBar');
+    const kpiPct=document.getElementById('kpiPct');
+
+    const kpiProgRoot=document.getElementById('kpiProgression');
+    const disc=document.getElementById('disc');
+    const discPct=document.getElementById('discPct');
+    const statTotal=document.getElementById('statTotal');
+    const statTested=document.getElementById('statTested');
+
+    // Chart refs
+    const chartSvg=document.getElementById('advChart');
+    const chartTitle=document.getElementById('chartTitle');
+
+    setTimeout(openImportModal,500);
+    updateSaveButtonState(false);
+
+    function openImportModal(){ importModal.classList.add('show'); document.body.style.overflow='hidden'; }
+    function closeImportModal(){ importModal.classList.remove('show'); document.body.style.overflow='auto'; }
+    function openConfigModal(){ configModal.classList.add('show'); document.body.style.overflow='hidden'; }
+    function closeConfigModal(){ configModal.classList.remove('show'); document.body.style.overflow='auto'; }
+    function showStatusMessage(message,type='success'){
+        statusMessage.textContent=message;
+        statusMessage.className=`status-message show ${type}`;
+        setTimeout(()=>statusMessage.classList.remove('show'),3000);
+    }
+    
+    function updateSaveButtonState(hasFile){
+        if(hasFile) {
+            saveMainBtn.classList.add('enabled');
+            prepMainBtn.classList.add('enabled'); // Activation du bouton Préparation
+        }
+        else { 
+            saveMainBtn.classList.remove('enabled'); 
+            prepMainBtn.classList.remove('enabled'); // Désactivation du bouton Préparation
+            saveInfo.style.display='none'; 
+        }
+    }
+
+    importBtn.onclick=openImportModal;
+    closeImportBtn.onclick=closeImportModal;
+    closeConfigBtn.onclick=closeConfigModal;
+    
+    browseBtn.onclick=()=>fileInput.click();
+    saveMainBtn.onclick=()=>{ if(saveMainBtn.classList.contains('enabled')) saveExcelFile(); };
+    prepMainBtn.onclick=()=>{ if(prepMainBtn.classList.contains('enabled')) openPreparationPage(); }; // ÉVÉNEMENT NOUVEAU
+
+    fileInput.onchange=e=>{ const f=e.target.files[0]; if(f) handleFile(f); };
+    fileDropZone.ondragover=e=>e.preventDefault();
+    fileDropZone.ondrop=e=>{ e.preventDefault(); const f=e.dataTransfer.files[0]; if(f) handleFile(f); };
+
+    function handleFile(file){
+        fileName.textContent=file.name; fileInfo.style.display='block'; originalFileName=file.name;
+        
+        if (typeof XLSX === 'undefined' || typeof XLSX.read === 'undefined') {
+            showStatusMessage('Erreur: La librairie XLSX n\'a pas pu être chargée.','error');
+            return; 
+        }
+
+        const reader=new FileReader();
+        reader.onload=e=>{
+            try {
+                currentWorkbook = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+                updateSaveButtonState(true);
+                importBtn.classList.add('imported');
+                
+                const totalDDRPlanifie = computeTotalPlannedDDR(currentWorkbook);
+                computeAndRenderKpiFromListeDDR(currentWorkbook);   // conformité (F)
+                computeAndRenderProgressFromColE(currentWorkbook, totalDDRPlanifie); // progression (E)
+                computeAndRenderProgressCurve(currentWorkbook, totalDDRPlanifie);     // courbe progression réelle et théorique
+
+                showStatusMessage(`Fichier "${file.name}" importé et données chargées.`, 'success');
+                setTimeout(closeImportModal,1000);
+
+            } catch(error) {
+                 showStatusMessage('Erreur de traitement du fichier Excel: '+error.message,'error');
+                 return; 
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    async function saveExcelFile(){
+        if(!currentWorkbook || !originalFileName){ showStatusMessage('Aucun fichier à sauvegarder.','error'); return; }
+        const ts=new Date().toISOString().slice(0,19).replace(/[:]/g,'-');
+        const nameWithoutExt=originalFileName.replace(/\.[^/.]+$/,'');
+        const extension=(originalFileName.split('.').pop()||'xlsx').toLowerCase();
+        try{
+            const out=XLSX.write(currentWorkbook,{bookType:extension==='xls'?'xls':'xlsx',type:'array',cellDates:true,cellNF:true,cellText:false});
+            const blob=new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+            const url=URL.createObjectURL(blob);
+            const a=document.createElement('a'); a.href=url; a.download=`${nameWithoutExt}_modifie_${ts}.${extension}`; a.click();
+            URL.revokeObjectURL(url);
+            showStatusMessage('Fichier téléchargé','success');
+            const now=new Date();
+            saveDateTime.textContent=`Sauvé le ${now.toLocaleDateString('fr-FR')} à ${now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`;
+            saveInfo.style.display='block';
+            saveMainBtn.classList.add('saved');
+        }catch(e){ showStatusMessage('Erreur lors de la sauvegarde : '+e.message,'error'); }
+    }
+
+    // NOUVELLE FONCTION : Transmet le classeur à la page de préparation
+    async function openPreparationPage(){
+        if(!currentWorkbook){ showStatusMessage('Aucun fichier chargé pour la préparation.','error'); return; }
+
+        try{
+            // 1. Sérialiser le classeur Excel en Base64
+            const base64Out = XLSX.write(currentWorkbook,{bookType:'xlsx',type:'base64',cellDates:true,cellNF:true,cellText:false});
+            
+            // 2. Stocker la chaîne dans localStorage avec la clé D'ORIGINE
+            localStorage.setItem('ddr_original_workbook_data', base64Out);
+            // Stocker le nom pour la nouvelle page
+            localStorage.setItem('ddr_filename', originalFileName);
+
+            // 3. Ouvrir la nouvelle page (REMPLACEMENT de la page actuelle)
+            // L'URL est modifiée pour pointer vers le chemin spécifié par l'utilisateur.
+            window.location.href = 'Autre page Test DDR/Préparation Test DDR.html';
+
+            showStatusMessage('Ouverture de la page de préparation.','success');
+            
+        }catch(e){ 
+            showStatusMessage('Erreur lors de la préparation des données : '+e.message,'error');
+            localStorage.removeItem('ddr_original_workbook_data'); 
+            localStorage.removeItem('ddr_filename');
+        }
+    }
+
+    // NOUVEAU LISTENER : Écoute les modifications renvoyées par la page de préparation
+    window.addEventListener('storage', (event) => {
+        // La clé 'ddr_modified_workbook_data' est celle utilisée par preparation.html pour le retour
+        if (event.key === 'ddr_modified_workbook_data' && event.newValue) {
+            try {
+                const base64Data = event.newValue;
+                
+                // 1. Décodage du Base64 vers ArrayBuffer
+                const s = window.atob(base64Data);
+                const buffer = s2ab(s);
+
+                // 2. Chargement du classeur MODIFIÉ dans la variable globale 'currentWorkbook'
+                currentWorkbook = XLSX.read(buffer, {type:'array', cellDates:true});
+                
+                // 3. Mettre à jour l'UI et les KPIs avec les nouvelles données
+                const totalDDRPlanifie = computeTotalPlannedDDR(currentWorkbook);
+                computeAndRenderKpiFromListeDDR(currentWorkbook);
+                computeAndRenderProgressFromColE(currentWorkbook, totalDDRPlanifie); 
+                computeAndRenderProgressCurve(currentWorkbook, totalDDRPlanifie);
+                
+                showStatusMessage('Données mises à jour depuis la page de préparation. Prêtes à être sauvegardées.','success');
+                saveMainBtn.classList.remove('saved'); // Retirer l'état "Sauvé"
+                
+                // Nettoyage : On peut retirer la clé de modification après usage
+                localStorage.removeItem('ddr_modified_workbook_data');
+
+            } catch(error) {
+                showStatusMessage('Erreur lors de la lecture des données modifiées : ' + error.message,'error');
+            }
+        }
+    });
+
+    /* ===== Fonctions de Traitement de Données (Inchagées) ===== */
+    
+    function findSheet(wb, expectedNameLower){
+        let name=null;
+        for(const n of wb.SheetNames){ 
+            if(n.trim().toLowerCase()===expectedNameLower.trim().toLowerCase()){ 
+                name=n; 
+                break; 
+            } 
+        }
+        if (!name && wb.SheetNames.length > 0) { name = wb.SheetNames[0]; }
+        const sh=wb.Sheets[name];
+        if(!sh) throw new Error(`Feuille "${expectedNameLower}" introuvable ou fichier vide.`);
+        return sh;
+    }
+    function readExcelDate(cell){
+        if(!cell) return null;
+        if(cell.t==='d' && cell.v instanceof Date){
+            return new Date(cell.v.getFullYear(), cell.v.getMonth(), cell.v.getDate());
+        }
+        if(cell.t==='n'){
+            const o=XLSX.SSF.parse_date_code(cell.v);
+            if(o) return new Date(o.y, o.m-1, o.d);
+        }
+        if(cell.t==='s' && typeof cell.v==='string'){
+            const s=cell.v.trim();
+            let m=s.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
+            if(m){ const y=+m[1], mo=+m[2], d=+m[3]; if(mo>=1&&mo<=12&&d>=1&&d<=31) return new Date(y,mo-1,d); }
+            m=s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+            if(m){ let d=+m[1], mo=+m[2], y=+m[3]; if(y<100) y+=2000; if(mo>=1&&mo<=12&&d>=1&&d<=31) return new Date(y,mo-1,d); }
+            const p=new Date(s); if(!isNaN(p)) return new Date(p.getFullYear(),p.getMonth(),p.getDate());
+        }
+        return null;
+    }
+    function computeTotalPlannedDDR(wb) {
+        try {
+            const shDDR = findSheet(wb, 'liste ddr');
+            const rngDDR = XLSX.utils.decode_range(shDDR['!ref']);
+            let totalDDRPlanifie = 0;
+            for (let r = rngDDR.s.r + 1; r <= rngDDR.e.r; r++) {
+                const cellB = shDDR[XLSX.utils.encode_cell({ c: 1, r })];
+                const cellO = shDDR[XLSX.utils.encode_cell({ c: 14, r })]; // O: Date planifiée
+                const hasDDR = cellB && String(cellB.v ?? '').trim() !== '';
+                const hasPlan = cellO && String(cellO.v ?? '').trim() !== '';
+                if (hasDDR && hasPlan) { totalDDRPlanifie++; }
+            }
+            return totalDDRPlanifie;
+        } catch (e) { showStatusMessage('Erreur de calcul du total planifié : ' + e.message, 'error'); return 0; }
+    }
+    function computeAndRenderKpiFromListeDDR(wb){
+        try{
+            const sh=findSheet(wb,'liste ddr');
+            const rng=XLSX.utils.decode_range(sh['!ref']);
+            let total=0,enRetard=0;
+            const today=new Date();
+            const todayNoTime=new Date(today.getFullYear(),today.getMonth(),today.getDate());
+            for(let r=rng.s.r+1;r<=rng.e.r;r++){
+                const cellB=sh[XLSX.utils.encode_cell({c:1,r})];
+                const hasDDR=cellB && String(cellB.v??'').trim()!=='';
+                if(!hasDDR) continue; total++;
+                const nextDate=readExcelDate(sh[XLSX.utils.encode_cell({c:5,r})]); // F
+                if(!nextDate || nextDate < todayNoTime) enRetard++;
+            }
+            const pct= total ? (1-(enRetard/total))*100 : 0;
+            renderKPI_Col(pct, total-enRetard, total);
+        }catch(e){ showStatusMessage('KPI conformité indisponible: '+e.message,'error'); }
+    }
+    function renderKPI_Col(pct, conformes, total){
+        const p=Math.max(0,Math.min(100,pct));
+        kpiPct.textContent=p.toFixed(1).replace('.',',')+' %';
+        const h=Math.round(200*(p/100));
+        kpiBar.style.height=h+'px';
+        if(p<50) kpiBar.style.background='#e74c3c';
+        else if(p<80) kpiBar.style.background='#f39c12';
+        else kpiBar.style.background='#27ae60';
+        kpiBar.title=`${conformes}/${total} à jour (F ≥ aujourd’hui)`;
+        kpiRoot.style.display='block';
+    }
+    function computeAndRenderProgressFromColE(wb, totalDDRPlanifie){
+        try{
+            const sh=findSheet(wb,'liste ddr');
+            const rng=XLSX.utils.decode_range(sh['!ref']);
+            let tested=0;
+            const thisYear=(new Date()).getFullYear();
+            const todayNoTime = new Date(thisYear, (new Date()).getMonth(), (new Date()).getDate()); 
+            for(let r=rng.s.r+1;r<=rng.e.r;r++){
+                const cellB=sh[XLSX.utils.encode_cell({c:1,r})];
+                const hasDDR=cellB && String(cellB.v??'').trim()!=='';
+                if(!hasDDR) continue;
+                const d=readExcelDate(sh[XLSX.utils.encode_cell({c:4,r})]); // E: Date dernier Contrôle
+                if(d && d.getFullYear()===thisYear && d <= todayNoTime) tested++;
+            }
+            const pct= totalDDRPlanifie ? (tested/totalDDRPlanifie)*100 : 0;
+            renderKPI_Disc(pct,tested,totalDDRPlanifie);
+        }catch(e){ showStatusMessage('KPI progression indisponible: '+e.message,'error'); }
+    }
+    function renderKPI_Disc(pct,tested,total){
+        const p=Math.max(0,Math.min(100,pct));
+        disc.style.background=`conic-gradient(#27ae60 ${p*3.6}deg, #e6eef5 0deg)`;
+        discPct.textContent=p.toFixed(1).replace('.',',')+' %';
+        statTotal.textContent=total; statTested.textContent=tested;
+        kpiProgRoot.style.display='block';
+    }
+    function computeAndRenderProgressCurve(wb, totalDDRPlanifie){
+        const thisYear=(new Date()).getFullYear();
+        let shDDR, rngDDR, shArret, rngArret;
+        try { shDDR = findSheet(wb,'liste ddr'); rngDDR = XLSX.utils.decode_range(shDDR['!ref']); } 
+        catch (e) { showStatusMessage('Feuille "liste ddr" manquante pour la courbe: '+e.message,'error'); return; }
+        
+        try { shArret = findSheet(wb,'arrêt programmé'); rngArret = XLSX.utils.decode_range(shArret['!ref']); }
+        catch (e) { shArret = null; }
+
+        const todayNoTime = new Date(thisYear, (new Date()).getMonth(), (new Date()).getDate()); 
+
+        const shutdownMap = {};
+        const monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+        
+        if (shArret) {
+            for(let r=rngArret.s.r+1;r<=rngArret.e.r;r++){
+                const cellArret = shArret[XLSX.utils.encode_cell({c:0,r})]; 
+                const cellMois = shArret[XLSX.utils.encode_cell({c:1,r})]; 
+                if(cellArret && cellMois && String(cellArret.v??'').trim()!==''){
+                    const stopName = String(cellArret.v).trim().toLowerCase();
+                    const monthName = String(cellMois.v).trim().toLowerCase();
+                    const monthIndex = monthNames.indexOf(monthName);
+                    if(monthIndex !== -1){ shutdownMap[stopName] = monthIndex; }
+                }
+            }
+        }
+        
+        const monthlyCountsReal=new Array(12).fill(0);
+        const monthlyCountsTheo=new Array(12).fill(0);
+        let lastTheoreticalMonthIndex = -1;
+
+        for(let r=rngDDR.s.r+1;r<=rngDDR.e.r;r++){
+            const cellB=shDDR[XLSX.utils.encode_cell({c:1,r})];
+            const hasDDR=cellB && String(cellB.v??'').trim()!=='';
+            if(!hasDDR) continue; 
+            
+            const cellE=shDDR[XLSX.utils.encode_cell({c:4,r})];
+            const dE=readExcelDate(cellE);
+            
+            if(dE && dE.getFullYear()===thisYear && dE <= todayNoTime){ monthlyCountsReal[dE.getMonth()]++; }
+
+            const cellO=shDDR[XLSX.utils.encode_cell({c:14,r})];
+            if(cellO && String(cellO.v??'').trim()!==''){
+                let theoMonthIndex = -1;
+                if(cellO.t === 'd' || cellO.t === 'n'){ 
+                    const dO=readExcelDate(cellO);
+                    if(dO && dO.getFullYear()===thisYear) theoMonthIndex = dO.getMonth();
+                } else if(cellO.t === 's'){ 
+                    const vO=String(cellO.v).trim().toLowerCase();
+                    for (const stopName in shutdownMap) {
+                        if (vO.includes(stopName)) { theoMonthIndex = shutdownMap[stopName]; break; }
+                    }
+                }
+                if(theoMonthIndex !== -1){
+                    monthlyCountsTheo[theoMonthIndex]++;
+                    lastTheoreticalMonthIndex = Math.max(lastTheoreticalMonthIndex, theoMonthIndex);
+                }
+            }
+        }
+        
+        const totalBase = totalDDRPlanifie;
+        
+        const cumPercReal=[]; let cumR=0;
+        for(let m=0;m<12;m++){ cumR += monthlyCountsReal[m]; cumPercReal[m] = totalBase ? (cumR/totalBase) : 0; }
+
+        const cumPercTheo=[]; 
+        if(totalBase > 0 && lastTheoreticalMonthIndex !== -1) {
+            let cumT=0;
+            for(let m=0;m<=lastTheoreticalMonthIndex;m++){
+                cumT += monthlyCountsTheo[m];
+                cumPercTheo[m] = totalBase ? (cumT/totalBase) : 0;
+            }
+            const maxTheoValue = cumPercTheo[lastTheoreticalMonthIndex];
+            for(let m = lastTheoreticalMonthIndex; m < 12; m++) {
+                cumPercTheo[m] = maxTheoValue;
+            }
+        } else {
+             cumPercTheo.fill(0);
+        }
+
+        renderLineChart(chartSvg, cumPercReal, cumPercTheo, lastTheoreticalMonthIndex, todayNoTime.getMonth());
+    }
+
+    function renderLineChart(svg, cumR, cumT, lastTheoreticalMonthIndex, currentMonthIndex){
+        while(svg.firstChild) svg.removeChild(svg.firstChild);
+        const W=980,H=340, ml=60, mr=20, mt=20, mb=40;
+        const innerW=W-ml-mr, innerH=H-mt-mb;
+        const months=['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc'];
+        const X = m => (innerW)*(m/11);
+        const Y = v => innerH*(1-v);
+
+        const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+        g.setAttribute('transform',`translate(${ml},${mt})`);
+        svg.appendChild(g);
+
+        for(let i=0;i<=4;i++){
+            const y=innerH - (innerH*(i/4));
+            const line=document.createElementNS(svg.namespaceURI,'line');
+            line.setAttribute('x1',0); line.setAttribute('x2',innerW);
+            line.setAttribute('y1',y); line.setAttribute('y2',y);
+            line.setAttribute('stroke','#e5ecf3'); line.setAttribute('stroke-width','1');
+            g.appendChild(line);
+
+            const lbl=document.createElementNS(svg.namespaceURI,'text');
+            lbl.setAttribute('x',-10); lbl.setAttribute('y',y+4);
+            lbl.setAttribute('text-anchor','end'); lbl.setAttribute('font-size','11'); lbl.setAttribute('fill','#607d8b');
+            lbl.textContent=(i*25)+'%';
+            g.appendChild(lbl);
+        }
+        for(let m=0;m<12;m++){
+            const x=(innerW)*(m/11);
+            const t=document.createElementNS(svg.namespaceURI,'text');
+            t.setAttribute('x',x); t.setAttribute('y',innerH+18);
+            t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','11'); t.setAttribute('fill','#607d8b');
+            t.textContent=months[m];
+            g.appendChild(t);
+        }
+
+        function pathFrom(arr, limitIndex){
+            let d=''; 
+            const actualLimit = Math.min(11, limitIndex); 
+            for(let m=0;m<=actualLimit;m++){
+                const x=X(m), y=Y(arr[m]); 
+                d += (m===0? `M ${x} ${y}`:` L ${x} ${y}`); 
+            }
+            return d;
+        }
+
+        const pTheo=document.createElementNS(svg.namespaceURI,'path');
+        pTheo.setAttribute('d',pathFrom(cumT, 11)); 
+        pTheo.setAttribute('fill','none'); pTheo.setAttribute('stroke','#3498db');
+        pTheo.setAttribute('stroke-width','4'); pTheo.setAttribute('stroke-dasharray','8 4');
+        g.appendChild(pTheo);
+
+        const pReal=document.createElementNS(svg.namespaceURI,'path');
+        pReal.setAttribute('d',pathFrom(cumR, currentMonthIndex)); 
+        pReal.setAttribute('fill','none'); pReal.setAttribute('stroke','#2ecc71'); pReal.setAttribute('stroke-width','4');
+        g.appendChild(pReal);
+
+        let lastTheoLabelIndex = -1;
+        for(let m=11; m>=0; m--) {
+            if (cumT[m] > 0) { lastTheoLabelIndex = m; break; }
+        }
+        for(let m=0;m<12;m++){
+            const cx=X(m), cy=Y(cumT[m]);
+            if (cumT[m] > 0) {
+                const dot=document.createElementNS(svg.namespaceURI,'circle');
+                dot.setAttribute('cx',cx); dot.setAttribute('cy',cy); dot.setAttribute('r',3.5);
+                dot.setAttribute('fill','#3498db'); dot.setAttribute('opacity','0.9');
+                g.appendChild(dot);
+            }
+            if (m === lastTheoLabelIndex && cumT[m] > 0) {
+                const label=document.createElementNS(svg.namespaceURI,'text');
+                label.setAttribute('x',cx); label.setAttribute('y',cy-10);
+                label.setAttribute('text-anchor','middle'); label.setAttribute('font-size','12');
+                label.setAttribute('font-weight','800'); label.setAttribute('fill','#3498db');
+                label.setAttribute('stroke','#fff'); label.setAttribute('stroke-width','3');
+                label.setAttribute('paint-order','stroke');
+                const pct = (cumT[m]*100).toFixed(1).replace('.',',') + ' %';
+                label.textContent = pct;
+                g.appendChild(label);
+            }
+        }
+        for(let m=0;m<=currentMonthIndex;m++){
+            const cx=X(m), cy=Y(cumR[m]);
+            if (cumR[m] > 0) {
+                const dot=document.createElementNS(svg.namespaceURI,'circle');
+                dot.setAttribute('cx',cx); dot.setAttribute('cy',cy); dot.setAttribute('r',3.5);
+                dot.setAttribute('fill','#2ecc71'); dot.setAttribute('opacity','0.9');
+                g.appendChild(dot);
+            }
+            if(m===currentMonthIndex && cumR[m]>0){
+                const label=document.createElementNS(svg.namespaceURI,'text');
+                label.setAttribute('x',cx); label.setAttribute('y',cy-10);
+                label.setAttribute('text-anchor','middle'); label.setAttribute('font-size','12');
+                label.setAttribute('font-weight','800'); label.setAttribute('fill','#2c3e50');
+                label.setAttribute('stroke','#fff'); label.setAttribute('stroke-width','3');
+                label.setAttribute('paint-order','stroke');
+                const pct = (cumR[m]*100).toFixed(1).replace('.',',') + ' %';
+                label.textContent = pct;
+                g.appendChild(label);
+            }
+        }
+
+        const today=new Date();
+        const daysInMonth=new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
+        const frac = today.getMonth() + (today.getDate()-1)/daysInMonth;
+        const xToday = X(frac);
+        const vLine=document.createElementNS(svg.namespaceURI,'line');
+        vLine.setAttribute('x1',xToday); vLine.setAttribute('x2',xToday);
+        vLine.setAttribute('y1',0); vLine.setAttribute('y2',innerH);
+        vLine.setAttribute('stroke','#3498db'); vLine.setAttribute('stroke-dasharray','6 6');
+        vLine.setAttribute('stroke-width','2');
+        g.appendChild(vLine);
+
+        const tag=document.createElementNS(svg.namespaceURI,'text');
+        tag.setAttribute('x',xToday+6); tag.setAttribute('y',12);
+        tag.setAttribute('font-size','12'); tag.setAttribute('fill','#3498db'); tag.setAttribute('font-weight','700');
+        tag.textContent="Aujourd'hui";
+        g.appendChild(tag);
+    }
+});
+</script>
+</body>
+</html>

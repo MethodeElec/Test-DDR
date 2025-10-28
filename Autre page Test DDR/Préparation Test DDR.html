@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Préparation DDR</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        /* ... (Styles CSS non modifiés pour la concision) ... */
+        body { font-family: Arial, sans-serif; background-color: #f4f7f9; padding: 20px; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); }
+        h1 { color: #8e44ad; margin-bottom: 20px; }
+        #status { margin-bottom: 20px; padding: 10px; border-radius: 6px; background: #ecf0f1; border-left: 4px solid #3498db; }
+        .action-button {
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            color: #fff;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: 0 4px 10px rgba(46, 204, 113, 0.4);
+        }
+        .action-button:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(46, 204, 113, 0.6); }
+        .data-display {
+            border: 1px solid #ddd;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+            background: #fff;
+            border-radius: 8px;
+        }
+        .data-display pre { white-space: pre-wrap; word-wrap: break-word; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Page de Préparation DDR</h1>
+        <p>Fichier en cours d'édition : <strong id="filenameDisplay">...</strong></p>
+        
+        <div id="status">Chargement du classeur Excel...</div>
+
+        <button class="action-button" onclick="saveChangesAndNotifyMainPage()" disabled id="savePrepBtn">
+            Terminer et Retourner à l'Analyse
+        </button>
+
+        <div class="data-display">
+            <h2>Aperçu de la Feuille 'liste ddr'</h2>
+            <pre id="sheetPreview">En attente de chargement des données...</pre>
+        </div>
+    </div>
+
+<script>
+    let prepWorkbook = null;
+    let originalFileName = localStorage.getItem('ddr_filename') || 'Fichier Inconnu';
+    document.getElementById('filenameDisplay').textContent = originalFileName;
+    const statusDiv = document.getElementById('status');
+    const sheetPreview = document.getElementById('sheetPreview');
+    const savePrepBtn = document.getElementById('savePrepBtn');
+
+    function s2ab(s) { 
+        const buf = new ArrayBuffer(s.length);
+        const view = new Uint8Array(buf);
+        for (let i=0; i!==s.length; ++i) view[i] = s.charCodeAt(i) & 0xFF;
+        return buf;
+    }
+
+    function updateStatus(message, isError = false) {
+        statusDiv.textContent = message;
+        statusDiv.style.borderColor = isError ? '#e74c3c' : '#2ecc71';
+        statusDiv.style.backgroundColor = isError ? '#f9e7e7' : '#eaf8f4';
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const base64Data = localStorage.getItem('ddr_original_workbook_data');
+        
+        if (base64Data) {
+            try {
+                // 1. Conversion et chargement
+                const s = window.atob(base64Data);
+                const buffer = s2ab(s);
+                prepWorkbook = XLSX.read(buffer, {type:'array', cellDates:true});
+                
+                updateStatus(`Fichier chargé. Vous pouvez apporter vos modifications.`);
+                savePrepBtn.disabled = false;
+                
+                // 2. Affichage d'un aperçu
+                if (prepWorkbook.Sheets['liste ddr']) {
+                    const sheet = prepWorkbook.Sheets['liste ddr'];
+                    const json = XLSX.utils.sheet_to_json(sheet, {header: 1, range: 0, raw: false});
+                    sheetPreview.textContent = JSON.stringify(json.slice(0, 5), null, 2) + '\n\n... (5 premières lignes affichées)';
+                } else {
+                     sheetPreview.textContent = "Feuille 'liste ddr' introuvable dans le classeur.";
+                }
+
+            } catch (e) {
+                updateStatus("Erreur lors du chargement des données Excel: " + e.message, true);
+                sheetPreview.textContent = "Échec du chargement du classeur.";
+            }
+        } else {
+            updateStatus("Aucune donnée de classeur trouvée. Veuillez relancer l'import depuis la page principale.", true);
+        }
+    });
+
+    /**
+     * VOTRE LOGIQUE DE MODIFICATION VA ICI.
+     */
+    function applyModifications(workbook) {
+        if (!workbook) return;
+
+        const sheetName = 'liste ddr';
+        if (workbook.Sheets[sheetName]) {
+            const sheet = workbook.Sheets[sheetName];
+            const timestamp = new Date().toLocaleTimeString('fr-FR');
+            // Exemple de modification: ajout d'un marqueur en A1
+            XLSX.utils.sheet_add_aoa(sheet, [[`MODIFIÉ VIA PRÉPARATION À ${timestamp}`]], {origin: 'A1'});
+            workbook.Sheets[sheetName] = sheet;
+        } else {
+            console.error(`La feuille '${sheetName}' n'existe pas.`);
+        }
+    }
+
+
+    // ====================================================================
+    // MODIFICATION CRITIQUE : Redirection vers le dossier parent
+    // ====================================================================
+    function saveChangesAndNotifyMainPage() {
+        if (!prepWorkbook) return alert("Classeur non chargé ou vide.");
+        
+        try {
+            // 1. Appliquer les modifications au classeur en mémoire
+            applyModifications(prepWorkbook);
+
+            // 2. Sérialiser le classeur MODIFIÉ
+            const base64Out = XLSX.write(prepWorkbook, {bookType:'xlsx',type:'base64',cellDates:true,cellNF:true,cellText:false});
+
+            // 3. Stocker la chaîne dans la clé de RETOUR
+            localStorage.setItem('ddr_data_to_load_on_main', base64Out);
+            
+            updateStatus(`Modifications enregistrées. Redirection en cours...`, false);
+            savePrepBtn.disabled = true;
+
+            // 4. Redirection vers le fichier Test DDR.html dans le répertoire parent (../)
+            setTimeout(() => {
+                window.location.href = '../Test DDR.html'; // <-- CHEMIN CORRECT DE RETOUR
+            }, 500);
+            
+        } catch (e) {
+            updateStatus("Erreur lors de l'enregistrement des modifications: " + e.message, true);
+        }
+    }
+    // ====================================================================
+</script>
+</body>
+</html>
