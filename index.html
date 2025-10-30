@@ -104,6 +104,7 @@
     svg#advChart{width:100%;height:340px;display:block}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> 
 </head>
 <body>
 <div class="today-badge" id="todayBadge">--/--/----</div>
@@ -185,6 +186,26 @@
 </div>
 
 <script>
+// ====================================================================
+// ✅ CORRECTION DATE DU JOUR (S'exécute immédiatement)
+// ====================================================================
+const todayBadge = document.getElementById('todayBadge');
+const now = new Date();
+if (todayBadge) {
+    todayBadge.textContent = now.toLocaleDateString('fr-FR');
+}
+// ====================================================================
+
+
+// ====================================================================
+// 🔑 CONFIGURATION SUPABASE : VOS CLÉS SONT CONSERVÉES ICI 🔑
+// ====================================================================
+const SUPABASE_URL = 'https://ejirdcqcmmeybgitonmw.supabase.co'; // Votre URL de projet
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqaXJkY3FjbW1leWJnaXRvbm13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1OTY2MjYsImV4cCI6MjA3NzE3MjYyNn0.4E93ufwJ-RIjV9qT0I4t3GiI9NIzVzN_ktwDPswT7ic'; // Votre clé publique Anon
+
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// ====================================================================
+
 let currentWorkbook=null, originalFileName=null;
 
 /**
@@ -198,12 +219,92 @@ function s2ab(s) {
     return buf;
 }
 
+// ====================================================================
+// NOUVELLES FONCTIONS SUPABASE
+// ====================================================================
+
+/**
+ * Convertit la feuille 'liste ddr' du classeur en un tableau d'objets JSON.
+ * @param {Object} wb Le classeur XLSX.
+ * @returns {Array} Un tableau d'objets représentant les lignes de la feuille.
+ */
+function convertWorkbookToJSON(wb) {
+    try {
+        const sheetName = 'liste ddr';
+        const sh = findSheet(wb, sheetName);
+        // Utilise l'utilitaire XLSX pour convertir la feuille en un tableau d'objets (clé=nom de colonne)
+        // Note: raw: false pour garder le format texte, dateNF pour les dates
+        const jsonData = XLSX.utils.sheet_to_json(sh, { header: 1, raw: false, dateNF: "dd/mm/yyyy" });
+        
+        if (!jsonData || jsonData.length < 1) return [];
+
+        // Récupérer les en-têtes (première ligne)
+        const header = jsonData[0];
+        const data = [];
+
+        // Itérer sur les lignes de données (à partir de la deuxième ligne)
+        for (let i = 1; i < jsonData.length; i++) {
+            const row = jsonData[i];
+            const obj = {};
+            for (let j = 0; j < header.length; j++) {
+                // Utiliser l'en-tête comme clé
+                const key = header[j] ? String(header[j]).trim() : `Col_${j+1}`;
+                obj[key] = row[j];
+            }
+            // Inclure l'index de la ligne pour référence
+            data.push({ row_index_excel: i + 2, ...obj }); 
+        }
+
+        return data;
+
+    } catch(e) {
+        console.error("Erreur lors de la conversion du classeur en JSON:", e);
+        return { error: 'Conversion failed', details: e.message };
+    }
+}
+
+/**
+ * Enregistre les données converties et les métadonnées dans Supabase.
+ * @param {Array|Object} dataToSave Le tableau d'objets ou un objet d'erreur à sauvegarder.
+ */
+async function saveToSupabase(dataToSave) {
+    if (!originalFileName || !dataToSave) {
+        // Le message d'erreur est géré par saveExcelFile si la conversion a échoué
+        return;
+    }
+
+    // Le nom de la table dans votre base de données Supabase (à créer si elle n'existe pas)
+    const TABLE_NAME = 'ddr_data'; 
+    
+    // Tentative d'insertion
+    const { data, error } = await supabase
+        .from(TABLE_NAME)
+        .insert([
+            { 
+                nom_fichier: originalFileName, 
+                date_sauvegarde: new Date().toISOString(),
+                // 'donnees' doit être de type JSONB dans votre table Supabase
+                donnees: dataToSave 
+            },
+        ])
+        .select();
+
+    if (error) {
+        showStatusMessage(`Erreur Supabase (Table "${TABLE_NAME}"): Échec de l’enregistrement en ligne.`, 'error');
+        console.error('Erreur Supabase:', error);
+    } else {
+        showStatusMessage('Fichier enregistré avec succès sur Supabase.', 'success');
+        console.log('Données Supabase insérées:', data);
+    }
+}
+
+// ====================================================================
+
 document.addEventListener('DOMContentLoaded', function(){
     // Date
-    const todayBadge=document.getElementById('todayBadge');
-    // NOTE IMPORTANTE: Utiliser une date 'actuelle' cohérente pour le badge et les calculs
-    const now=new Date(); // Date réelle du système/contexte (21/10/2025)
-    todayBadge.textContent=now.toLocaleDateString('fr-FR');
+    // const todayBadge=document.getElementById('todayBadge'); <-- DÉPLACÉ EN HAUT
+    // const now=new Date(); 
+    // todayBadge.textContent=now.toLocaleDateString('fr-FR');
 
     // UI refs
     const importBtn=document.getElementById('importBtn');
@@ -215,7 +316,7 @@ document.addEventListener('DOMContentLoaded', function(){
     const fileInfo=document.getElementById('fileInfo');
     const fileName=document.getElementById('fileName');
     const saveMainBtn=document.getElementById('saveMainBtn');
-    const prepMainBtn=document.getElementById('prepMainBtn'); // RÉFÉRENCE NOUVELLE
+    const prepMainBtn=document.getElementById('prepMainBtn'); 
     const saveInfo=document.getElementById('saveInfo');
     const saveDateTime=document.getElementById('saveDateTime');
     const statusMessage=document.getElementById('statusMessage');
@@ -256,11 +357,11 @@ document.addEventListener('DOMContentLoaded', function(){
     function updateSaveButtonState(hasFile){
         if(hasFile) {
             saveMainBtn.classList.add('enabled');
-            prepMainBtn.classList.add('enabled'); // Activation du bouton Préparation
+            prepMainBtn.classList.add('enabled'); 
         }
         else { 
             saveMainBtn.classList.remove('enabled'); 
-            prepMainBtn.classList.remove('enabled'); // Désactivation du bouton Préparation
+            prepMainBtn.classList.remove('enabled'); 
             saveInfo.style.display='none'; 
         }
     }
@@ -271,7 +372,7 @@ document.addEventListener('DOMContentLoaded', function(){
     
     browseBtn.onclick=()=>fileInput.click();
     saveMainBtn.onclick=()=>{ if(saveMainBtn.classList.contains('enabled')) saveExcelFile(); };
-    prepMainBtn.onclick=()=>{ if(prepMainBtn.classList.contains('enabled')) openPreparationPage(); }; // ÉVÉNEMENT NOUVEAU
+    prepMainBtn.onclick=()=>{ if(prepMainBtn.classList.contains('enabled')) openPreparationPage(); }; 
 
     fileInput.onchange=e=>{ const f=e.target.files[0]; if(f) handleFile(f); };
     fileDropZone.ondragover=e=>e.preventDefault();
@@ -293,9 +394,9 @@ document.addEventListener('DOMContentLoaded', function(){
                 importBtn.classList.add('imported');
                 
                 const totalDDRPlanifie = computeTotalPlannedDDR(currentWorkbook);
-                computeAndRenderKpiFromListeDDR(currentWorkbook);   // conformité (F)
-                computeAndRenderProgressFromColE(currentWorkbook, totalDDRPlanifie); // progression (E)
-                computeAndRenderProgressCurve(currentWorkbook, totalDDRPlanifie);     // courbe progression réelle et théorique
+                computeAndRenderKpiFromListeDDR(currentWorkbook);   
+                computeAndRenderProgressFromColE(currentWorkbook, totalDDRPlanifie); 
+                computeAndRenderProgressCurve(currentWorkbook, totalDDRPlanifie);     
 
                 showStatusMessage(`Fichier "${file.name}" importé et données chargées.`, 'success');
                 setTimeout(closeImportModal,1000);
@@ -310,6 +411,10 @@ document.addEventListener('DOMContentLoaded', function(){
 
     async function saveExcelFile(){
         if(!currentWorkbook || !originalFileName){ showStatusMessage('Aucun fichier à sauvegarder.','error'); return; }
+        
+        let localSaveSuccess = false;
+        
+        // --- 1. Sauvegarde locale (Téléchargement) ---
         const ts=new Date().toISOString().slice(0,19).replace(/[:]/g,'-');
         const nameWithoutExt=originalFileName.replace(/\.[^/.]+$/,'');
         const extension=(originalFileName.split('.').pop()||'xlsx').toLowerCase();
@@ -319,15 +424,30 @@ document.addEventListener('DOMContentLoaded', function(){
             const url=URL.createObjectURL(blob);
             const a=document.createElement('a'); a.href=url; a.download=`${nameWithoutExt}_modifie_${ts}.${extension}`; a.click();
             URL.revokeObjectURL(url);
-            showStatusMessage('Fichier téléchargé','success');
+            showStatusMessage('Fichier téléchargé localement.', 'success');
+            
             const now=new Date();
             saveDateTime.textContent=`Sauvé le ${now.toLocaleDateString('fr-FR')} à ${now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`;
             saveInfo.style.display='block';
             saveMainBtn.classList.add('saved');
-        }catch(e){ showStatusMessage('Erreur lors de la sauvegarde : '+e.message,'error'); }
+            localSaveSuccess = true;
+            
+        }catch(e){ 
+            showStatusMessage('Erreur lors du téléchargement local : '+e.message,'error'); 
+            localSaveSuccess = false;
+        }
+
+        // --- 2. Sauvegarde Supabase ---
+        if (localSaveSuccess) {
+            const jsonData = convertWorkbookToJSON(currentWorkbook);
+            if(jsonData && !jsonData.error) {
+                await saveToSupabase(jsonData);
+            } else {
+                showStatusMessage('Erreur: Conversion du fichier en JSON échouée. Non sauvegardé sur Supabase.', 'error');
+            }
+        }
     }
 
-    // NOUVELLE FONCTION : Transmet le classeur à la page de préparation
     async function openPreparationPage(){
         if(!currentWorkbook){ showStatusMessage('Aucun fichier chargé pour la préparation.','error'); return; }
 
@@ -341,7 +461,6 @@ document.addEventListener('DOMContentLoaded', function(){
             localStorage.setItem('ddr_filename', originalFileName);
 
             // 3. Ouvrir la nouvelle page (REMPLACEMENT de la page actuelle)
-            // L'URL est modifiée pour pointer vers le chemin spécifié par l'utilisateur.
             window.location.href = 'Autre page Test DDR/Préparation Test DDR.html';
 
             showStatusMessage('Ouverture de la page de préparation.','success');
@@ -353,9 +472,7 @@ document.addEventListener('DOMContentLoaded', function(){
         }
     }
 
-    // NOUVEAU LISTENER : Écoute les modifications renvoyées par la page de préparation
     window.addEventListener('storage', (event) => {
-        // La clé 'ddr_modified_workbook_data' est celle utilisée par preparation.html pour le retour
         if (event.key === 'ddr_modified_workbook_data' && event.newValue) {
             try {
                 const base64Data = event.newValue;
@@ -374,7 +491,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 computeAndRenderProgressCurve(currentWorkbook, totalDDRPlanifie);
                 
                 showStatusMessage('Données mises à jour depuis la page de préparation. Prêtes à être sauvegardées.','success');
-                saveMainBtn.classList.remove('saved'); // Retirer l'état "Sauvé"
+                saveMainBtn.classList.remove('saved'); 
                 
                 // Nettoyage : On peut retirer la clé de modification après usage
                 localStorage.removeItem('ddr_modified_workbook_data');
