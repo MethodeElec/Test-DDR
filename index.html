@@ -62,6 +62,7 @@
     .status-message.show{opacity:1}
     .status-message.success{background:rgba(46,204,113,.1);color:#27ae60;border-left:4px solid #2ecc71}
     .status-message.error{background:rgba(231,76,60,.1);color:#e74c3c;border-left:4px solid #e74c3c}
+    .status-message.info{background:rgba(52,152,219,.1);color:#3498db;border-left:4px solid #3498db} /* Ajout du style info */
 
     /* Modal import */
     .modal{display:none;position:fixed;z-index:1000;inset:0;background-color:rgba(0,0,0,.5);backdrop-filter:blur(5px)}
@@ -206,227 +207,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // ====================================================================
 
-// currentWorkbook est utilisé pour l'importation de fichier et la sauvegarde.
-let currentWorkbook = null; 
-// currentDDRData est le tableau JSON des données Supabase
-let currentDDRData = null;
-let originalFileName = null;
-
-// ====================================================================
-// NOUVELLES FONCTIONS DE GESTION DES DONNÉES SUPABASE EN TEMPS RÉEL
-// ====================================================================
-
-/**
- * Tente de parser une chaîne de date JSON (générée par XLSX) ou une date ISO en objet Date.
- */
-function readJSONDate(dateStr) {
-    if (!dateStr) return null;
-    const s = String(dateStr).trim();
-
-    // 1. Tente de parser le format français dd/mm/yyyy (issu de la conversion XLSX)
-    let parts = s.split(/[\/\-\.]/);
-    if (parts.length === 3) {
-        let d = +parts[0], mo = +parts[1], y = +parts[2];
-        if (y < 100) y += 2000;
-        if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
-            const date = new Date(y, mo - 1, d);
-            if (date.getFullYear() === y && date.getMonth() === mo - 1 && date.getDate() === d) return date;
-        }
-    }
-    
-    // 2. Tente de parser le format ISO/standard
-    const p = new Date(s);
-    if (!isNaN(p.getTime())) {
-        return new Date(p.getFullYear(), p.getMonth(), p.getDate()); // Retourne la date sans l'heure
-    }
-
-    return null;
-}
-
-/**
- * Établit l'abonnement en temps réel à la table ddr_data.
- */
-function setupRealtimeSubscription() {
-    supabase
-        .channel('ddr_changes') // Nom du canal unique
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'ddr_data' }, (payload) => {
-            console.log('Changement Supabase reçu:', payload);
-            showStatusMessage('Mise à jour des données reçue en temps réel...', 'success');
-            // Re-fetch la dernière entrée pour garantir l'affichage des données les plus récentes
-            fetchAndProcessLatestData();
-        })
-        .subscribe();
-}
-
-/**
- * Récupère le dernier enregistrement de ddr_data et déclenche l'affichage.
- */
-async function fetchAndProcessLatestData() {
-    // 1. Récupérer le dernier enregistrement (le plus récent)
-    const { data: records, error: fetchError } = await supabase
-        .from('ddr_data')
-        .select('id, nom_fichier, donnees, date_sauvegarde')
-        .order('date_sauvegarde', { ascending: false })
-        .limit(1);
-
-    if (fetchError) {
-        showStatusMessage('Erreur de récupération des données Supabase: ' + fetchError.message, 'error');
-        // Si Supabase échoue, on ne fait rien pour laisser la possibilité d'importer un fichier
-        return;
-    }
-
-    if (!records || records.length === 0) {
-        // Aucune donnée Supabase, on laisse la possibilité d'importer un fichier
-        showStatusMessage('Aucune donnée DDR trouvée sur Supabase. Importez un fichier.', 'error');
-        updateSaveButtonState(false);
-        // Nettoyer les KPIs
-        renderKPI_Col(0, 0, 0);
-        renderKPI_Disc(0, 0, 0);
-        renderLineChart(document.getElementById('advChart'), [], [], -1, -1);
-        return;
-    }
-
-    const latestRecord = records[0];
-    currentDDRData = latestRecord.donnees;
-    originalFileName = latestRecord.nom_fichier;
-
-    // 2. Mettre à jour le statut de l'UI
-    const updateTime = new Date(latestRecord.date_sauvegarde);
-    showStatusMessage(`Données du fichier "${latestRecord.nom_fichier}" chargées depuis Supabase (Mis à jour: ${updateTime.toLocaleTimeString('fr-FR')}).`, 'success');
-    
-    // Mettre à jour l'info de dernière mise à jour
-    const saveInfo = document.getElementById('saveInfo');
-    const saveDateTime = document.getElementById('saveDateTime');
-    saveDateTime.textContent=`Live : ${updateTime.toLocaleDateString('fr-FR')} à ${updateTime.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`;
-    saveInfo.style.display='block';
-    
-    // 3. Traiter et Rendre les KPIs/Graphiques
-    processAndRenderJSONData(currentDDRData);
-
-    // 4. Désactiver le bouton Sauvegarder (puisqu'on vient de charger le live)
-    // et activer le bouton Préparation
-    updateSaveButtonState(false, true); 
-}
-
-/**
- * Calcule et affiche les KPIs/Graphiques à partir du tableau JSON de Supabase.
- * @param {Array} data Le tableau d'objets JSON.
- */
-function processAndRenderJSONData(data) {
-    if (!data || data.length === 0) return;
-
-    // Assumer que le JSON a les en-têtes de l'Excel (d'après convertWorkbookToJSON)
-    const firstRow = data[0];
-    const headers = Object.keys(firstRow);
-
-    // Utilisation des noms de colonnes ou indices pour plus de robustesse
-    const KEY_DDR_ID = headers.find(h => h.includes('DDR')) || headers[1]; 
-    const KEY_NEXT_CONTROL = headers.find(h => h.includes('Prochain Contrôle') || h.includes('F')) || headers[5]; 
-    const KEY_LAST_CONTROL = headers.find(h => h.includes('Dernier Contrôle') || h.includes('E')) || headers[4]; 
-    const KEY_PLANNED_DATE = headers.find(h => h.includes('Date Planifiée') || h.includes('O')) || headers[14]; 
-    const KEY_SHUTDOWN_NAME = headers.find(h => h.includes('Arrêt') || h.includes('A')) || headers[0]; 
-    
-    // Simplification des arrêts planifiés (à adapter si vous avez la feuille 'arrêt programmé' dans Supabase)
-    const hardcodedShutdowns = {
-        'arrêt a': 2, // Mars
-        'arrêt b': 5, // Juin
-        'arrêt c': 9, // Octobre
-    };
-
-    let totalDDR = 0;
-    let enRetard = 0;
-    let totalDDRPlanifie = 0;
-    let tested = 0;
-    
-    const today = new Date();
-    const todayNoTime = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const thisYear = today.getFullYear();
-
-    const monthlyCountsReal = new Array(12).fill(0);
-    const monthlyCountsTheo = new Array(12).fill(0);
-    let lastTheoreticalMonthIndex = -1;
-
-    for (const row of data) {
-        const hasDDR = row[KEY_DDR_ID] && String(row[KEY_DDR_ID]).trim() !== '';
-        if (!hasDDR) continue;
-        
-        // --- KPI 1: Conformité (Colonne F) ---
-        totalDDR++;
-        const nextDate = readJSONDate(row[KEY_NEXT_CONTROL]);
-        if (!nextDate || nextDate < todayNoTime) {
-            enRetard++;
-        }
-
-        // --- Progression & Courbe (Colonnes E, O, A) ---
-        const lastControlDate = readJSONDate(row[KEY_LAST_CONTROL]);
-        const plannedDateValue = row[KEY_PLANNED_DATE];
-        
-        // Progression Réelle (Colonne E)
-        if (lastControlDate && lastControlDate.getFullYear() === thisYear && lastControlDate <= todayNoTime) {
-            tested++;
-            monthlyCountsReal[lastControlDate.getMonth()]++;
-        }
-
-        // Progression Théorique (Colonne O ou A)
-        const hasPlan = plannedDateValue && String(plannedDateValue).trim() !== '';
-        if (hasPlan) {
-            totalDDRPlanifie++;
-            
-            let theoMonthIndex = -1;
-            
-            if (plannedDateValue instanceof Date || !isNaN(Date.parse(plannedDateValue)) || String(plannedDateValue).split(/[\/\-\.]/).length === 3) {
-                // Valeur est une date
-                const dO = readJSONDate(plannedDateValue);
-                if (dO && dO.getFullYear() === thisYear) { theoMonthIndex = dO.getMonth(); }
-            } else {
-                // Valeur est un texte (Arrêt Programmé)
-                const shutdownName = row[KEY_SHUTDOWN_NAME] ? String(row[KEY_SHUTDOWN_NAME]).trim().toLowerCase() : '';
-                for (const stopName in hardcodedShutdowns) {
-                    if (shutdownName.includes(stopName.toLowerCase())) {
-                        theoMonthIndex = hardcodedShutdowns[stopName];
-                        break;
-                    }
-                }
-            }
-            
-            if (theoMonthIndex !== -1) {
-                monthlyCountsTheo[theoMonthIndex]++;
-                lastTheoreticalMonthIndex = Math.max(lastTheoreticalMonthIndex, theoMonthIndex);
-            }
-        }
-    }
-
-    // --- Rendu des résultats
-    const pctConformite = totalDDR ? (1 - (enRetard / totalDDR)) * 100 : 0;
-    renderKPI_Col(pctConformite, totalDDR - enRetard, totalDDR);
-
-    const pctProgression = totalDDRPlanifie ? (tested / totalDDRPlanifie) * 100 : 0;
-    renderKPI_Disc(pctProgression, tested, totalDDRPlanifie);
-
-    // Calcul cumulé pour la courbe
-    const cumPercReal = []; let cumR = 0;
-    for (let m = 0; m < 12; m++) { cumR += monthlyCountsReal[m]; cumPercReal[m] = totalDDRPlanifie ? (cumR / totalDDRPlanifie) : 0; }
-
-    const cumPercTheo = []; 
-    if (totalDDRPlanifie > 0 && lastTheoreticalMonthIndex !== -1) {
-        let cumT = 0;
-        for (let m = 0; m <= lastTheoreticalMonthIndex; m++) {
-            cumT += monthlyCountsTheo[m];
-            cumPercTheo[m] = totalDDRPlanifie ? (cumT / totalDDRPlanifie) : 0;
-        }
-        const maxTheoValue = cumPercTheo[lastTheoreticalMonthIndex];
-        for (let m = lastTheoreticalMonthIndex; m < 12; m++) {
-            cumPercTheo[m] = maxTheoValue;
-        }
-    } else {
-        cumPercTheo.fill(0);
-    }
-    const chartSvg = document.getElementById('advChart');
-    const currentMonthIndex = today.getMonth();
-    renderLineChart(chartSvg, cumPercReal, cumPercTheo, lastTheoreticalMonthIndex, currentMonthIndex);
-}
-
-// ====================================================================
+let currentWorkbook=null, originalFileName=null;
 
 /**
  * Fonction utilitaire de la librairie XLSX.js pour convertir une chaîne 
@@ -440,7 +221,7 @@ function s2ab(s) {
 }
 
 // ====================================================================
-// FONCTIONS DE CONVERSION ET DE SAUVEGARDE (EXCEL -> SUPABASE)
+// NOUVELLES FONCTIONS SUPABASE
 // ====================================================================
 
 /**
@@ -453,11 +234,12 @@ function convertWorkbookToJSON(wb) {
         const sheetName = 'liste ddr';
         const sh = findSheet(wb, sheetName);
         // Utilise l'utilitaire XLSX pour convertir la feuille en un tableau d'objets (clé=nom de colonne)
-        // dateNF est important pour que les dates soient lisibles par JS/Supabase si on utilise la colonne 'v'
-        const jsonData = XLSX.utils.sheet_to_json(sh, { header: 1, raw: false, dateNF: "yyyy-mm-dd" });
+        // Note: raw: false pour garder le format texte, dateNF pour les dates
+        const jsonData = XLSX.utils.sheet_to_json(sh, { header: 1, raw: false, dateNF: "dd/mm/yyyy" });
         
         if (!jsonData || jsonData.length < 1) return [];
 
+        // Récupérer les en-têtes (première ligne)
         const header = jsonData[0];
         const data = [];
 
@@ -466,13 +248,15 @@ function convertWorkbookToJSON(wb) {
             const row = jsonData[i];
             const obj = {};
             for (let j = 0; j < header.length; j++) {
+                // Utiliser l'en-tête comme clé
                 const key = header[j] ? String(header[j]).trim() : `Col_${j+1}`;
                 obj[key] = row[j];
             }
+            // Inclure l'index de la ligne pour référence
             data.push({ row_index_excel: i + 2, ...obj }); 
         }
 
-        return data;
+        return jsonData; // Retourne le format [header, row1, row2, ...] pour la sauvegarde
 
     } catch(e) {
         console.error("Erreur lors de la conversion du classeur en JSON:", e);
@@ -486,9 +270,11 @@ function convertWorkbookToJSON(wb) {
  */
 async function saveToSupabase(dataToSave) {
     if (!originalFileName || !dataToSave) {
+        // Le message d'erreur est géré par saveExcelFile si la conversion a échoué
         return;
     }
 
+    // Le nom de la table dans votre base de données Supabase (à créer si elle n'existe pas)
     const TABLE_NAME = 'ddr_data'; 
     
     // Tentative d'insertion
@@ -498,6 +284,7 @@ async function saveToSupabase(dataToSave) {
             { 
                 nom_fichier: originalFileName, 
                 date_sauvegarde: new Date().toISOString(),
+                // 'donnees' doit être de type JSONB dans votre table Supabase
                 donnees: dataToSave 
             },
         ])
@@ -507,17 +294,106 @@ async function saveToSupabase(dataToSave) {
         showStatusMessage(`Erreur Supabase (Table "${TABLE_NAME}"): Échec de l’enregistrement en ligne.`, 'error');
         console.error('Erreur Supabase:', error);
     } else {
-        showStatusMessage('Fichier enregistré avec succès sur Supabase. Mise à jour en temps réel envoyée.', 'success');
+        showStatusMessage('Fichier enregistré avec succès sur Supabase.', 'success');
         console.log('Données Supabase insérées:', data);
+        saveMainBtn.classList.add('saved');
+    }
+}
+
+/**
+ * RÉCUPÈRE LES DERNIÈRES DONNÉES ENREGISTRÉES DEPUIS SUPABASE,
+ * les convertit en un classeur XLSX virtuel pour réutiliser les fonctions de KPI,
+ * puis met à jour l'interface utilisateur.
+ */
+async function fetchAndLoadWorkbookFromSupabase() {
+    const TABLE_NAME = 'ddr_data'; 
+    showStatusMessage('Tentative de récupération des dernières données depuis Supabase...', 'info');
+
+    // 1. Récupérer l'enregistrement le plus récent
+    const { data: latestEntry, error } = await supabase
+        .from(TABLE_NAME)
+        .select('donnees, nom_fichier, date_sauvegarde')
+        .order('date_sauvegarde', { ascending: false })
+        .limit(1);
+
+    if (error) {
+        showStatusMessage(`Erreur Supabase: ${error.message}`, 'error');
+        console.error('Erreur de récupération Supabase:', error);
+        return false;
+    }
+
+    if (!latestEntry || latestEntry.length === 0) {
+        showStatusMessage('Aucune donnée DDR trouvée dans Supabase. Veuillez importer un fichier.', 'info');
+        return false;
+    }
+    
+    // On a les données
+    const entry = latestEntry[0];
+    const jsonData = entry.donnees;
+    const saveDate = entry.date_sauvegarde;
+    
+    if (!Array.isArray(jsonData) || jsonData.length < 1) {
+        showStatusMessage('Format des données Supabase invalide.', 'error');
+        return false;
+    }
+
+    // 2. Créer un classeur XLSX virtuel à partir du JSON pour réutiliser le code de rendu KPI
+    try {
+        // jsonData est l'array of arrays: [[Header], [Row1], [Row2], ...]
+        
+        // Création du classeur
+        const wb = XLSX.utils.book_new();
+        
+        // Créer la feuille "liste ddr"
+        const wsDDR = XLSX.utils.aoa_to_sheet(jsonData); 
+        XLSX.utils.book_append_sheet(wb, wsDDR, "liste ddr");
+
+        // Créer une feuille "arrêt programmé" vide pour éviter que findSheet ne plante si la fonction computeAndRenderProgressCurve la cherche
+        const wsArret = XLSX.utils.aoa_to_sheet([["Arrêt Programmé", "Mois"]]);
+        XLSX.utils.book_append_sheet(wb, wsArret, "arrêt programmé");
+        
+        currentWorkbook = wb; // Définir la variable globale
+        originalFileName = entry.nom_fichier || 'Données_Supabase';
+
+        // 3. Mettre à jour l'UI et les KPIs
+        const totalDDRPlanifie = computeTotalPlannedDDR(currentWorkbook);
+        computeAndRenderKpiFromListeDDR(currentWorkbook);   
+        computeAndRenderProgressFromColE(currentWorkbook, totalDDRPlanifie); 
+        computeAndRenderProgressCurve(currentWorkbook, totalDDRPlanifie);     
+
+        // 4. Activer les boutons et mettre à jour le bouton d'importation
+        updateSaveButtonState(true);
+        importBtn.classList.add('imported');
+        importBtn.textContent = `Données ${originalFileName} (Supabase) Chargées`;
+        saveDateTime.textContent = `Chargé le ${new Date(saveDate).toLocaleDateString('fr-FR')} à ${new Date(saveDate).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}`;
+        saveInfo.style.display='block';
+        saveMainBtn.classList.remove('saved'); 
+        
+        // Cacher l'info modal
+        const importModal=document.getElementById('importModal');
+        if (importModal.classList.contains('show')) {
+            setTimeout(closeImportModal, 1000);
+        }
+
+        showStatusMessage(`Données chargées avec succès depuis Supabase.`, 'success');
+        return true;
+
+    } catch(e) {
+        showStatusMessage('Erreur lors de la conversion des données Supabase en classeur virtuel: ' + e.message, 'error');
+        console.error('Erreur de conversion:', e);
+        return false;
     }
 }
 
 
 // ====================================================================
-// LOGIQUE DE DÉMARRAGE ET HANDLERS
-// ====================================================================
 
 document.addEventListener('DOMContentLoaded', function(){
+    // Date
+    // const todayBadge=document.getElementById('todayBadge'); <-- DÉPLACÉ EN HAUT
+    // const now=new Date(); 
+    // todayBadge.textContent=now.toLocaleDateString('fr-FR');
+
     // UI refs
     const importBtn=document.getElementById('importBtn');
     const importModal=document.getElementById('importModal');
@@ -550,18 +426,13 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // Chart refs
     const chartSvg=document.getElementById('advChart');
-    
-    // 1. Initialiser le chargement et la souscription Supabase
-    fetchAndProcessLatestData();
-    setupRealtimeSubscription();
+    const chartTitle=document.getElementById('chartTitle');
 
-    function openImportModal(){ 
-        importModal.classList.add('show'); 
-        document.body.style.overflow='hidden'; 
-        saveMainBtn.classList.remove('saved');
-        // Si on ouvre la modale, on désactive le bouton de sauvegarde jusqu'à l'import
-        updateSaveButtonState(false, prepMainBtn.classList.contains('enabled'));
-    }
+    // Tentative de chargement des données Supabase au démarrage
+    fetchAndLoadWorkbookFromSupabase(); 
+    updateSaveButtonState(false);
+
+    function openImportModal(){ importModal.classList.add('show'); document.body.style.overflow='hidden'; }
     function closeImportModal(){ importModal.classList.remove('show'); document.body.style.overflow='auto'; }
     function openConfigModal(){ configModal.classList.add('show'); document.body.style.overflow='hidden'; }
     function closeConfigModal(){ configModal.classList.remove('show'); document.body.style.overflow='auto'; }
@@ -571,36 +442,40 @@ document.addEventListener('DOMContentLoaded', function(){
         setTimeout(()=>statusMessage.classList.remove('show'),3000);
     }
     
-    // Gestionnaire d'état des boutons (Adapté)
-    function updateSaveButtonState(saveEnabled, prepEnabled = false){
-        if(saveEnabled) {
+    function updateSaveButtonState(hasFile){
+        if(hasFile) {
             saveMainBtn.classList.add('enabled');
-            // Le bouton Préparation est aussi activé après l'import local
             prepMainBtn.classList.add('enabled'); 
+            document.getElementById('configBtn').style.pointerEvents = 'auto';
+            document.getElementById('configBtn').style.opacity = '1';
+            document.getElementById('configBtn').style.cursor = 'pointer';
+
         }
         else { 
             saveMainBtn.classList.remove('enabled'); 
-        }
-        
-        // Si on a des données (Supabase ou import) le bouton préparation est activé
-        if(prepEnabled || currentDDRData || currentWorkbook) {
-            prepMainBtn.classList.add('enabled');
-        } else {
-            prepMainBtn.classList.remove('enabled');
+            prepMainBtn.classList.remove('enabled'); 
+            saveInfo.style.display='none'; 
+            document.getElementById('configBtn').style.pointerEvents = 'none';
+            document.getElementById('configBtn').style.opacity = '0.3';
+            document.getElementById('configBtn').style.cursor = 'default';
         }
     }
+    
+    // Modification du gestionnaire de clic pour le bouton d'importation
+    importBtn.onclick = () => {
+        if (currentWorkbook) {
+            showStatusMessage('Données déjà chargées. Cliquer sur "Sauvegarder" pour enregistrer les modifications.', 'info');
+        } else {
+            openImportModal();
+        }
+    };
 
-    importBtn.onclick=openImportModal;
     closeImportBtn.onclick=closeImportModal;
     closeConfigBtn.onclick=closeConfigModal;
     
     browseBtn.onclick=()=>fileInput.click();
-    saveMainBtn.onclick=()=>{ 
-        if(saveMainBtn.classList.contains('enabled')) saveExcelFile(); 
-    };
-    prepMainBtn.onclick=()=>{ 
-        if(prepMainBtn.classList.contains('enabled')) openPreparationPage(); 
-    }; 
+    saveMainBtn.onclick=()=>{ if(saveMainBtn.classList.contains('enabled')) saveExcelFile(); };
+    prepMainBtn.onclick=()=>{ if(prepMainBtn.classList.contains('enabled')) openPreparationPage(); }; 
 
     fileInput.onchange=e=>{ const f=e.target.files[0]; if(f) handleFile(f); };
     fileDropZone.ondragover=e=>e.preventDefault();
@@ -617,28 +492,21 @@ document.addEventListener('DOMContentLoaded', function(){
         const reader=new FileReader();
         reader.onload=e=>{
             try {
-                // Charge le fichier dans currentWorkbook
                 currentWorkbook = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
-                
-                // Active la Sauvegarde et la Préparation
-                updateSaveButtonState(true, true); 
+                updateSaveButtonState(true);
                 importBtn.classList.add('imported');
+                importBtn.textContent = `Fichier ${file.name} Chargé`;
                 
-                // CALCULE ET REND LES KPIS AVEC LES DONNÉES EXCEL
                 const totalDDRPlanifie = computeTotalPlannedDDR(currentWorkbook);
                 computeAndRenderKpiFromListeDDR(currentWorkbook);   
                 computeAndRenderProgressFromColE(currentWorkbook, totalDDRPlanifie); 
                 computeAndRenderProgressCurve(currentWorkbook, totalDDRPlanifie);     
 
                 showStatusMessage(`Fichier "${file.name}" importé et données chargées.`, 'success');
-                // Masque l'info de dernière sauvegarde Supabase pour indiquer que c'est une version locale
-                document.getElementById('saveInfo').style.display='none';
                 setTimeout(closeImportModal,1000);
 
             } catch(error) {
                  showStatusMessage('Erreur de traitement du fichier Excel: '+error.message,'error');
-                 currentWorkbook = null;
-                 updateSaveButtonState(false, false);
                  return; 
             }
         };
@@ -663,10 +531,8 @@ document.addEventListener('DOMContentLoaded', function(){
             showStatusMessage('Fichier téléchargé localement.', 'success');
             
             const now=new Date();
-            // Met à jour l'info de sauvegarde pour l'état local
-            saveDateTime.textContent=`Sauvé en local : ${now.toLocaleDateString('fr-FR')} à ${now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`;
+            saveDateTime.textContent=`Sauvé le ${now.toLocaleDateString('fr-FR')} à ${now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`;
             saveInfo.style.display='block';
-            saveMainBtn.classList.add('saved');
             localSaveSuccess = true;
             
         }catch(e){ 
@@ -678,12 +544,7 @@ document.addEventListener('DOMContentLoaded', function(){
         if (localSaveSuccess) {
             const jsonData = convertWorkbookToJSON(currentWorkbook);
             if(jsonData && !jsonData.error) {
-                // Sauvegarde vers Supabase. Cela déclenchera le Realtime sur les autres pages.
                 await saveToSupabase(jsonData);
-                // Après sauvegarde réussie sur Supabase, on désactive le bouton Sauvegarder
-                // pour indiquer que l'état local est en sync
-                updateSaveButtonState(false, true); 
-                saveMainBtn.classList.remove('saved'); 
             } else {
                 showStatusMessage('Erreur: Conversion du fichier en JSON échouée. Non sauvegardé sur Supabase.', 'error');
             }
@@ -691,56 +552,51 @@ document.addEventListener('DOMContentLoaded', function(){
     }
 
     async function openPreparationPage(){
-        // On priorise le fichier Excel si un import a été fait, sinon on utilise les données Supabase (currentDDRData)
-        if(currentWorkbook){ 
-            try{
-                // Logic pour fichier Excel (pour conserver les données XLSX originales)
-                const base64Out = XLSX.write(currentWorkbook,{bookType:'xlsx',type:'base64',cellDates:true,cellNF:true,cellText:false});
-                localStorage.setItem('ddr_original_workbook_data', base64Out);
-                localStorage.setItem('ddr_filename', originalFileName);
-                window.location.href = 'Autre page Test DDR/Préparation Test DDR.html';
-                showStatusMessage('Ouverture de la page de préparation avec fichier Excel.','success');
-            }catch(e){ 
-                showStatusMessage('Erreur lors de la préparation des données Excel : '+e.message,'error');
-                localStorage.removeItem('ddr_original_workbook_data'); 
-                localStorage.removeItem('ddr_filename');
-            }
-        }
-        else if(currentDDRData){
-            try{
-                // Logic pour données Supabase JSON
-                localStorage.setItem('ddr_original_data_json', JSON.stringify(currentDDRData));
-                localStorage.setItem('ddr_filename', originalFileName);
-                window.location.href = 'Autre page Test DDR/Préparation Test DDR.html';
-                showStatusMessage('Ouverture de la page de préparation avec données Supabase.','success');
-            }catch(e){ 
-                showStatusMessage('Erreur lors de la préparation des données Supabase : '+e.message,'error');
-            }
-        }
-        else {
-            showStatusMessage('Aucune donnée chargée (ni fichier, ni Supabase) pour la préparation.','error'); 
+        if(!currentWorkbook){ showStatusMessage('Aucun fichier chargé pour la préparation.','error'); return; }
+
+        try{
+            // 1. Sérialiser le classeur Excel en Base64
+            const base64Out = XLSX.write(currentWorkbook,{bookType:'xlsx',type:'base64',cellDates:true,cellNF:true,cellText:false});
+            
+            // 2. Stocker la chaîne dans localStorage avec la clé D'ORIGINE
+            localStorage.setItem('ddr_original_workbook_data', base64Out);
+            // Stocker le nom pour la nouvelle page
+            localStorage.setItem('ddr_filename', originalFileName);
+
+            // 3. Ouvrir la nouvelle page (REMPLACEMENT de la page actuelle)
+            window.location.href = 'Autre page Test DDR/Préparation Test DDR.html';
+
+            showStatusMessage('Ouverture de la page de préparation.','success');
+            
+        }catch(e){ 
+            showStatusMessage('Erreur lors de la préparation des données : '+e.message,'error');
+            localStorage.removeItem('ddr_original_workbook_data'); 
+            localStorage.removeItem('ddr_filename');
         }
     }
 
     window.addEventListener('storage', (event) => {
         if (event.key === 'ddr_modified_workbook_data' && event.newValue) {
             try {
-                // Données venant d'un Excel modifié depuis la page de préparation
                 const base64Data = event.newValue;
+                
+                // 1. Décodage du Base64 vers ArrayBuffer
                 const s = window.atob(base64Data);
                 const buffer = s2ab(s);
+
+                // 2. Chargement du classeur MODIFIÉ dans la variable globale 'currentWorkbook'
                 currentWorkbook = XLSX.read(buffer, {type:'array', cellDates:true});
                 
-                // Met à jour les KPIs avec l'Excel MODIFIÉ
+                // 3. Mettre à jour l'UI et les KPIs avec les nouvelles données
                 const totalDDRPlanifie = computeTotalPlannedDDR(currentWorkbook);
                 computeAndRenderKpiFromListeDDR(currentWorkbook);
                 computeAndRenderProgressFromColE(currentWorkbook, totalDDRPlanifie); 
                 computeAndRenderProgressCurve(currentWorkbook, totalDDRPlanifie);
                 
                 showStatusMessage('Données mises à jour depuis la page de préparation. Prêtes à être sauvegardées.','success');
-                updateSaveButtonState(true, true); // Active le bouton Sauvegarder
                 saveMainBtn.classList.remove('saved'); 
                 
+                // Nettoyage : On peut retirer la clé de modification après usage
                 localStorage.removeItem('ddr_modified_workbook_data');
 
             } catch(error) {
@@ -749,7 +605,7 @@ document.addEventListener('DOMContentLoaded', function(){
         }
     });
 
-    /* ===== Fonctions de Traitement de Données (Excel - inchangées) ===== */
+    /* ===== Fonctions de Traitement de Données (Inchagées) ===== */
     
     function findSheet(wb, expectedNameLower){
         let name=null;
@@ -816,6 +672,17 @@ document.addEventListener('DOMContentLoaded', function(){
             renderKPI_Col(pct, total-enRetard, total);
         }catch(e){ showStatusMessage('KPI conformité indisponible: '+e.message,'error'); }
     }
+    function renderKPI_Col(pct, conformes, total){
+        const p=Math.max(0,Math.min(100,pct));
+        kpiPct.textContent=p.toFixed(1).replace('.',',')+' %';
+        const h=Math.round(200*(p/100));
+        kpiBar.style.height=h+'px';
+        if(p<50) kpiBar.style.background='#e74c3c';
+        else if(p<80) kpiBar.style.background='#f39c12';
+        else kpiBar.style.background='#27ae60';
+        kpiBar.title=`${conformes}/${total} à jour (F ≥ aujourd’hui)`;
+        kpiRoot.style.display='block';
+    }
     function computeAndRenderProgressFromColE(wb, totalDDRPlanifie){
         try{
             const sh=findSheet(wb,'liste ddr');
@@ -833,6 +700,13 @@ document.addEventListener('DOMContentLoaded', function(){
             const pct= totalDDRPlanifie ? (tested/totalDDRPlanifie)*100 : 0;
             renderKPI_Disc(pct,tested,totalDDRPlanifie);
         }catch(e){ showStatusMessage('KPI progression indisponible: '+e.message,'error'); }
+    }
+    function renderKPI_Disc(pct,tested,total){
+        const p=Math.max(0,Math.min(100,pct));
+        disc.style.background=`conic-gradient(#27ae60 ${p*3.6}deg, #e6eef5 0deg)`;
+        discPct.textContent=p.toFixed(1).replace('.',',')+' %';
+        statTotal.textContent=total; statTested.textContent=tested;
+        kpiProgRoot.style.display='block';
     }
     function computeAndRenderProgressCurve(wb, totalDDRPlanifie){
         const thisYear=(new Date()).getFullYear();
@@ -917,26 +791,6 @@ document.addEventListener('DOMContentLoaded', function(){
         renderLineChart(chartSvg, cumPercReal, cumPercTheo, lastTheoreticalMonthIndex, todayNoTime.getMonth());
     }
 
-    /* ===== Fonctions de Rendu (Inchagées) ===== */
-    
-    function renderKPI_Col(pct, conformes, total){
-        const p=Math.max(0,Math.min(100,pct));
-        kpiPct.textContent=p.toFixed(1).replace('.',',')+' %';
-        const h=Math.round(200*(p/100));
-        kpiBar.style.height=h+'px';
-        if(p<50) kpiBar.style.background='#e74c3c';
-        else if(p<80) kpiBar.style.background='#f39c12';
-        else kpiBar.style.background='#27ae60';
-        kpiBar.title=`${conformes}/${total} à jour (F ≥ aujourd’hui)`;
-        kpiRoot.style.display='block';
-    }
-    function renderKPI_Disc(pct,tested,total){
-        const p=Math.max(0,Math.min(100,pct));
-        disc.style.background=`conic-gradient(#27ae60 ${p*3.6}deg, #e6eef5 0deg)`;
-        discPct.textContent=p.toFixed(1).replace('.',',')+' %';
-        statTotal.textContent=total; statTested.textContent=tested;
-        kpiProgRoot.style.display='block';
-    }
     function renderLineChart(svg, cumR, cumT, lastTheoreticalMonthIndex, currentMonthIndex){
         while(svg.firstChild) svg.removeChild(svg.firstChild);
         const W=980,H=340, ml=60, mr=20, mt=20, mb=40;
