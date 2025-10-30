@@ -239,7 +239,8 @@ document.addEventListener('DOMContentLoaded', function(){
     const chartSvg=document.getElementById('advChart');
     const chartTitle=document.getElementById('chartTitle');
 
-    setTimeout(openImportModal,500);
+    // LIGNE MODIFIÉE : Commentée pour ne pas ouvrir la modale au chargement
+    // setTimeout(openImportModal,500); 
     updateSaveButtonState(false);
 
     function openImportModal(){ importModal.classList.add('show'); document.body.style.overflow='hidden'; }
