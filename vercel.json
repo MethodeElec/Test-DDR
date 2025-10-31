@@ -1,0 +1,9 @@
+// Fichier : vercel.json
+{
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/login.html"
+    }
+  ]
+}

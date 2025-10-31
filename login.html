@@ -1,57 +1,128 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Préparation - Accès Restreint</title>
-  <style>
-    /* Ajoutez ici votre CSS de préparation */
-    body { font-family: Arial, sans-serif; padding: 20px; }
-  </style>
+    <meta charset="UTF-8">
+    <title>Connexion DDR</title>
+    <style>
+        :root {
+            --primary-color: #0078d7;
+            --success-color: #4caf50;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to bottom right, #e0f7fa, #bbdefb);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            width: 350px;
+            text-align: center;
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        input[type="email"], input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #005bb5;
+        }
+        #message {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
-  <h1>Page de Préparation des DDR</h1>
-  <p>Cette page est réservée aux utilisateurs autorisés (Administrateurs et Préparateurs).</p>
-  
-  <script type="module">
-    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-    
-    // !!! VOS CLÉS SUPABASE !!!
-    const SUPABASE_URL = 'https://ejirdcqcmmeybgitonmw.supabase.co'
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqaXJkY3FjbW1leWJnaXRvbm13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1OTY2MjYsImV4cCI6MjA3NzE3MjYyNn0.4E93ufwJ-RIjV9qT0I4t3GiI9NIzVzN_ktwDPswT7ic'
+    <div class="login-container">
+        <h2>Connexion Test DDR</h2>
+        <p>Veuillez vous connecter pour accéder au tableau de bord.</p>
+        <form id="auth-form">
+            <input type="email" id="email" placeholder="Adresse email" required>
+            <input type="password" id="password" placeholder="Mot de passe" required>
+            <button type="submit">Se Connecter</button>
+        </form>
+        <p id="message"></p>
+    </div>
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-
-    async function checkPreparationAccess() {
-        const { data: { session } } = await supabase.auth.getSession();
+    <script type="module">
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
         
-        // 1. VÉRIFIE CONNEXION (Doit être logué)
-        if (!session) {
-            window.location.href = '/login.html'; 
-            return;
+        const SUPABASE_URL = 'https://ejirdcqcmmeybgitonmw.supabase.co'
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqaXJkY3FjbW1leWJnaXRvbm13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1OTY2MjYsImV4cCI6MjA3NzE3MjYyNn0.4E93ufwJ-RIjV9qT0I4t3GiI9NIzVzN_ktwDPswT7ic'
+
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+        
+        const form = document.getElementById('auth-form');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const message = document.getElementById('message');
+
+        /**
+         * Vérifie si l'utilisateur est déjà logué au chargement de la page
+         * et le redirige vers le dashboard s'il y a une session.
+         */
+        async function checkCurrentSession() {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                window.location.href = '/index.html'; 
+            }
         }
         
-        // 2. VÉRIFICATION DU RÔLE (Doit avoir le rôle de modification)
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('user_id', session.user.id)
-            .single();
-            
-        const userRole = profile?.role;
+        form.addEventListener('submit', handleLogin);
+        checkCurrentSession(); // Lance la vérification au chargement
 
-        // RÔLE INSUFFISANT -> Redirection vers le tableau de bord
-        if (userRole !== 'admin' && userRole !== 'preparator') {
-            alert("Accès non autorisé à cette page.");
-            window.location.href = '/index.html'; 
-            return;
+        async function handleLogin(e) {
+            e.preventDefault();
+            message.textContent = 'Connexion en cours...';
+            message.style.color = 'orange';
+
+            const email = emailInput.value;
+            const password = passwordInput.value;
+
+            const { error } = await supabase.auth.signInWithPassword({
+                email: email,
+                password: password,
+            });
+
+            if (error) {
+                message.textContent = `Erreur de connexion : ${error.message}`;
+                message.style.color = 'red';
+            } else {
+                message.textContent = 'Connexion réussie ! Redirection vers le tableau de bord...';
+                message.style.color = 'green';
+                
+                // REDIRECTION APRÈS SUCCÈS
+                setTimeout(() => {
+                    window.location.href = '/index.html'; 
+                }, 1000); // Laisse 1s pour voir le message de succès
+            }
         }
-
-        // Accès autorisé. Vous pouvez maintenant charger les données de préparation.
-        console.log(`Accès Préparation accordé pour le rôle: ${userRole}`);
-        // ... (Le reste de votre logique de chargement/modification des données va ici) ...
-    }
-
-    checkPreparationAccess();
-  </script>
+    </script>
 </body>
 </html>
