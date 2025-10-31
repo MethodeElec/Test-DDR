@@ -257,9 +257,9 @@
 
         // 2. VÉRIFICATION DU RÔLE (AUTORISATION)
         try {
-            // CORRECTION CRITIQUE : Utilisation des GUILLEMETS DOUBLES pour le nom de table avec espace
+            // CORRECTION: Utilisation de la table 'profiles' pour la vérification du rôle.
             const { data: profile, error: roleError } = await supabase
-                .from('"utilisateur autorisation"') // <--- CORRECTION APPLIQUÉE
+                .from('profiles') // <--- CORRECTION APPLIQUÉE ICI
                 .select('role')
                 .eq('user_id', session.user.id)
                 .single();
@@ -530,59 +530,4 @@
                     const { ctx, data, chartArea: { top, width, height } } = chart;
                     ctx.save();
                     ctx.font = 'bolder 2em Arial'; 
-                    ctx.fillStyle = '#333'; 
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(data.datasets[0].data[0].toFixed(1).replace('.', ',') + ' %', width / 2, height / 2 + top);
-                    ctx.restore();
-                }
-            }]
-        });
-
-
-        // 3. Graphique d'Évolution (Ligne)
-        const evolutionCtx = document.getElementById('evolutionChart').getContext('2d');
-        if (Chart.getChart(evolutionCtx)) Chart.getChart(evolutionCtx).destroy();
-        new Chart(evolutionCtx, {
-            type: 'line',
-            data: {
-                labels: evolutionData.map(d => d.month),
-                datasets: [
-                    {
-                        label: 'Progression réelle',
-                        data: evolutionData.map(d => d.real), 
-                        borderColor: successColor, backgroundColor: 'transparent',
-                        tension: 0.2, pointRadius: 3, borderWidth: 3
-                    },
-                    {
-                        label: 'Progression théorique',
-                        data: evolutionData.map(d => d.theoretical), 
-                        borderColor: primaryColor, backgroundColor: 'transparent',
-                        borderDash: [5, 5], tension: 0.2, pointRadius: 0, borderWidth: 2
-                    }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'top', labels: { usePointStyle: true, } },
-                    tooltip: {
-                        mode: 'index', intersect: false,
-                        callbacks: { 
-                            label: (context) => context.dataset.label + ': ' + (context.parsed.y !== null ? context.parsed.y.toFixed(1).replace('.', ',') + ' %' : 'N/A') 
-                        }
-                    }
-                },
-                scales: {
-                    y: { beginAtZero: true, max: 100, title: { display: false }, ticks: { callback: (value) => value + ' %' } },
-                    x: { grid: { display: false } }
-                }
-            }
-        });
-    }
-
-    // DÉCLENCHE LA NOUVELLE LOGIQUE DE SÉCURITÉ AU DÉMARRAGE
-    checkAuthAndRole(); 
-  </script>
-</body>
-</html>
+                    ctx.fillStyle
