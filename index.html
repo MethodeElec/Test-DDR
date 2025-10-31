@@ -7,20 +7,22 @@
   <style>
     /* VARIABLES COULEURS */
     :root {
-      --primary-color: #0078d7; 
-      --success-color: #4caf50; 
+      --primary-color: #0078d7; /* Bleu pour la progression théorique */
+      --success-color: #4caf50; /* Vert pour la conformité / progression réelle */
       --card-bg: white;
-      --light-bg: #e0f7fa; 
-      --dark-bg: #bbdefb; 
+      --light-bg: #e0f7fa; /* Bleu très clair */
+      --dark-bg: #bbdefb;  /* Bleu clair */
       --shadow-color: rgba(0,0,0,0.15);
       --button-hover: #005bb5;
       
-      --preparation-color: #9c27b0; 
-      --preparation-hover: #8e24aa; 
+      /* NOUVELLES COULEURS POUR LA PRÉPARATION (Violet) */
+      --preparation-color: #9c27b0; /* Violet */ 
+      --preparation-hover: #8e24aa; /* Violet foncé au survol */
     }
 
     body {
       font-family: Arial, sans-serif;
+      /* Style du fond dégradé */
       background: linear-gradient(to bottom right, var(--light-bg), var(--dark-bg)); 
       color: #333;
       display: flex;
@@ -30,14 +32,6 @@
       min-height: 100vh;
       margin: 0;
       padding-top: 20px;
-      /* AJOUT CRITIQUE POUR ÉLIMINER LE FLASH */
-      opacity: 0; 
-      transition: opacity 0s; 
-    }
-    
-    /* Le JS ajoutera cette classe 'loaded' si la connexion est OK */
-    .loaded {
-        opacity: 1;
     }
 
     /* HEADER CONNEXION SUPABASE */
@@ -68,14 +62,16 @@
         position: absolute;
         top: 50px;
         left: 50px;
-        /* Caché par défaut, affiché uniquement pour les rôles autorisés par JS */
-        display: none; 
     }
     .dashboard-button {
+        /* TAILLE : PLUS LARGE ET MOINS HAUT */
         padding: 20px 40px; 
         font-size: 1.3em; 
+        
+        /* COULEUR : VIOLET POUR PRÉPARATION */
         background-color: var(--preparation-color);
         color: white;
+        
         border: none;
         border-radius: 5px;
         cursor: pointer;
@@ -91,13 +87,14 @@
         font-size: 2.5em;
         font-weight: bold;
         color: #004d40;
-        margin-bottom: 5px; 
+        margin-bottom: 5px; /* Réduit la marge pour rapprocher la date */
     }
+    /* Style pour la date */
     #current-date {
         font-size: 1.2em;
         font-weight: bold;
         color: #004d40;
-        margin-bottom: 40px; 
+        margin-bottom: 40px; /* Ajoute un espace sous la date */
     }
     
     #top-stats {
@@ -114,6 +111,7 @@
         width: 150px;
     }
     #conformite-value {
+        /* TAILLE DE RÉFÉRENCE: 2em */
         font-size: 2em; 
         font-weight: bold;
         margin-bottom: 10px;
@@ -131,6 +129,7 @@
         gap: 20px;
     }
     #progression-chart-container {
+        /* Disque plus grand (200px) */
         height: 200px; 
         width: 200px;  
     }
@@ -143,12 +142,14 @@
         font-size: 1.1em;
     }
     .data-label {
+        /* Texte du label en gras et noir foncé */
         color: #333; 
         font-weight: bold; 
     }
     .data-value {
         font-size: 1.4em;
         font-weight: bold;
+        /* Valeur en noir foncé */
         color: #333;
     }
     
@@ -167,7 +168,7 @@
 
   </style>
 </head>
-<body class="unloaded">
+<body>
   
   <div id="top-left-controls">
     <button onclick="window.location.href='preparation.html'" class="dashboard-button">Préparation</button>
@@ -227,8 +228,8 @@
     }
 
     // ----------------------------------------------------------------------------------
-    // 1. Initialisation Supabase & Logique de Sécurité (checkAuthAndRole)
-    // ------------------------------------------------------------------
+    // 1. Initialisation Supabase & Connexion
+    // ----------------------------------------------------------------------------------
     import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
     
     const SUPABASE_URL = 'https://ejirdcqcmmeybgitonmw.supabase.co'
@@ -237,106 +238,83 @@
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     
     /**
-     * NOUVELLE LOGIQUE DE SÉCURITÉ : Vérifie la connexion, le rôle et adapte l'UI.
+     * Tente une connexion minimale à Supabase.
      */
-    async function checkAuthAndRole() {
-        displayCurrentDate(); 
+    async function testConnexion() {
+      // Afficher la date avant de tenter la connexion
+      displayCurrentDate(); 
+      
+      const status = document.getElementById('status')
+      const icon = document.getElementById('statusIcon')
+      const label = document.getElementById('dbLabel')
 
-        const icon = document.getElementById('statusIcon')
-        const label = document.getElementById('dbLabel')
-        const status = document.getElementById('status')
+      try {
+        const { error } = await supabase.from('fake_table').select('*').limit(1)
 
-        // 1. VÉRIFICATION DE LA SESSION UTILISATEUR
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (!error || (error && error.message.includes('schema cache'))) {
+          status.textContent = '' 
+          status.style.backgroundColor = 'transparent'
+          status.style.boxShadow = 'none' 
+          icon.textContent = '✓' 
+          icon.style.color = 'green'
+          label.style.color = 'green'
+          
+          await initCharts(); 
 
-        if (!session || sessionError) {
-            // REDIRECTION CRITIQUE : L'utilisateur n'est pas logué
-            window.location.href = '/login.html'; 
-            return; 
+        } else {
+          throw error
         }
+      } catch (err) {
+        console.error(err)
+        status.textContent = '❌ Erreur : ' + err.message
+        status.style.backgroundColor = '#ffdddd'
+        status.style.boxShadow = '0 2px 5px rgba(0,0,0,0.1)'
+        icon.textContent = '✕' 
+        icon.style.color = 'red'
+        label.style.color = 'red'
+        
+        // --- LOGIQUE DE SECOURS (FALLBACK) EN CAS D'ÉCHEC DE CONNEXION ---
+        const fallbackTheoretical = Array(12).fill(0); 
+        const fallbackReal = [
+            5, 15, 28, 32, 80, 82, 82, 82, 82, 87, null, null 
+        ];
+        
+        const evolutionDataFallback = fallbackReal.map((real, index) => ({
+            month: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'][index],
+            real: real, 
+            theoretical: fallbackTheoretical[index]
+        }));
+        // ---------------------------------------------------------------------------
 
-        // 2. VÉRIFICATION DU RÔLE (AUTORISATION)
-        try {
-            // CORRECTION: Utilisation de la table 'profiles' pour la vérification du rôle.
-            const { data: profile, error: roleError } = await supabase
-                .from('profiles') // <--- CORRECTION APPLIQUÉE ICI
-                .select('role')
-                .eq('user_id', session.user.id)
-                .single();
-
-            if (roleError || !profile) {
-                console.error("Erreur de récupération du profil ou rôle manquant. Déconnexion forcée.", roleError);
-                await supabase.auth.signOut();
-                window.location.href = '/login.html';
-                return;
-            }
-
-            const userRole = profile.role;
-
-            // Contrôle du Front-end : Afficher le bouton si le rôle est suffisant
-            if (userRole === 'admin' || userRole === 'preparator') {
-                 document.getElementById('top-left-controls').style.display = 'block'; 
-            }
-
-            // Met à jour le statut de connexion BD (visuel)
-            status.textContent = '' 
-            status.style.backgroundColor = 'transparent'
-            icon.textContent = '✓' 
-            icon.style.color = 'green'
-            label.style.color = 'green'
-            
-            // REND VISIBLE LA PAGE UNIQUEMENT SI LA VÉRIFICATION A RÉUSSI
-            document.body.classList.add('loaded'); // AJOUT CRITIQUE
-
-            // Lance l'initialisation des graphiques (le site est chargé et autorisé)
-            await initCharts(); 
-
-        } catch (e) {
-            console.error("Erreur critique d'accès à la BD ou de vérification:", e);
-            
-            // LOGIQUE DE SECOURS (FALLBACK) EN CAS D'ÉCHEC DE CONNEXION À LA BD
-            status.textContent = '❌ Erreur de connexion aux données'
-            status.style.backgroundColor = '#ffdddd'
-            icon.textContent = '✕' 
-            icon.style.color = 'red'
-            label.style.color = 'red'
-            
-            // REND VISIBLE LA PAGE AVEC LES DONNÉES DE SECOURS
-            document.body.classList.add('loaded'); // AJOUT CRITIQUE
-            
-            // Utilise les valeurs de secours pour afficher le tableau de bord
-            const fallbackTheoretical = Array(12).fill(0); 
-            const fallbackReal = [
-                5, 15, 28, 32, 80, 82, 82, 82, 82, 87, null, null 
-            ];
-            const evolutionDataFallback = fallbackReal.map((real, index) => ({
-                month: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'][index],
-                real: real, 
-                theoretical: fallbackTheoretical[index]
-            }));
-            renderCharts(86.7, 85.5, 3434, 2935, evolutionDataFallback);
-        }
+        // Utilise les valeurs de secours si la connexion échoue
+        renderCharts(86.7, 85.5, 3434, 2935, evolutionDataFallback);
+      }
     }
 
+    // ----------------------------------------------------------------------------------
+    // 2. Fonctions de Récupération des Données (Conformité, Progression & Évolution)
+    // ----------------------------------------------------------------------------------
 
-    // ----------------------------------------------------------------------------------
-    // 2. Fonctions de Récupération des Données (fetchConformiteData et fetchEvolutionData)
-    // ----------------------------------------------------------------------------------
-    
+    /**
+     * Calcule le taux de conformité et de progression en interrogeant la table liste_ddr.
+     */
     async function fetchConformiteData() {
         const currentYear = new Date().getFullYear();
         const startOfYear = `${currentYear}-01-01`;
         const endOfYear = `${currentYear}-12-31`;
 
+        // 1. Total DDR Répertorié
         const { count: totalDDR, error: totalError } = await supabase
             .from('liste_ddr')
             .select('*', { count: 'exact', head: true });
 
+        // 2. Total DDR Expirés (Non conformes)
         const { count: expiredDDR, error: expiredError } = await supabase
             .from('liste_ddr')
             .select('*', { count: 'exact', head: true })
             .lt('Date prochain controle', new Date().toISOString().split('T')[0]); 
 
+        // 3. Total DDR à faire / testés cette année (Progression)
         const { count: ddrThisYear, error: ddrThisYearError } = await supabase
             .from('liste_ddr')
             .select('*', { count: 'exact', head: true })
@@ -365,8 +343,13 @@
         };
     }
     
+    /**
+     * Récupère les données d'évolution réelle et théorique cumulées par mois, 
+     * toutes deux filtrées pour l'année en cours.
+     */
     async function fetchEvolutionData(totalDDR) {
         if (totalDDR === 0) {
+            // Retourne des données à 0% si aucun DDR n'est répertorié
             return Array(12).fill(0).map((_, index) => ({ 
                 month: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'][index],
                 real: 0, 
@@ -386,40 +369,59 @@
             let realPercentage = null; 
             let theoreticalPercentage = 0;
             
+            // --- LOGIQUE DE PROGRESSION THÉORIQUE (Date planifiee) : DYNAMIQUE ET CUMULÉE ---
+            
+            // Borne à la fin du mois
             const plannedEndDateFilter = new Date(currentYear, month, 0).toISOString().split('T')[0];
+
+            // Requête: Compter les DDR planifiés entre le 1er Janvier (startOfYear) et la fin du mois actuel (plannedEndDateFilter)
             const { count: plannedUpToMonth, error: plannedError } = await supabase
                 .from('liste_ddr')
                 .select('*', { count: 'exact', head: true })
                 .lte('Date planifiee', plannedEndDateFilter)
-                .gte('Date planifiee', startOfYear); 
+                .gte('Date planifiee', startOfYear); // Filtre pour l'année en cours
 
-            if (!plannedError) {
+            if (plannedError) {
+                console.error(`Erreur de récupération des données planifiées jusqu'au mois ${month}:`, plannedError);
+            } else {
+                // theoreticalPercentage sera 0 si plannedUpToMonth est 0 (car toutes les dates sont en 2026)
                 theoreticalPercentage = (plannedUpToMonth || 0) / totalDDR * 100;
             }
 
+            // --- LOGIQUE DE PROGRESSION RÉELLE (Date de dernier controle) : DYNAMIQUE ET CUMULÉE ---
+
             if (month <= currentMonth) {
+                // Pour les mois passés et le mois en cours
+                
                 let realEndDateFilter;
                 if (month === currentMonth) {
+                    // Borne au jour actuel (Oct 31) pour le mois en cours
                     realEndDateFilter = todayDate.toISOString().split('T')[0];
                 } else {
+                    // Borne à la fin du mois pour les mois passés
                     realEndDateFilter = plannedEndDateFilter; 
                 }
 
+                // Requête: Compter les DDR testés jusqu'à la date/fin du mois (et depuis le début de l'année)
                 const { count: testedUpToMonth, error: realError } = await supabase
                     .from('liste_ddr')
                     .select('*', { count: 'exact', head: true })
                     .lte('Date de dernier controle', realEndDateFilter)
                     .gte('Date de dernier controle', startOfYear); 
 
-                if (!realError) {
+                if (realError) {
+                    console.error(`Erreur de récupération des données réelles jusqu'au mois ${month}:`, realError);
+                } else {
                     realPercentage = (testedUpToMonth || 0) / totalDDR * 100;
                 }
             }
+            // else: realPercentage reste à 'null' pour les mois futurs
+
             
             evolutionData.push({ 
                 month: monthLabel,
-                real: realPercentage, 
-                theoretical: theoreticalPercentage 
+                real: realPercentage, // Sera null pour les mois futurs
+                theoretical: theoreticalPercentage // Calculé dynamiquement pour l'année en cours
             });
         }
 
@@ -427,21 +429,24 @@
     }
     
     // ----------------------------------------------------------------------------------
-    // 3. Fonction Principale d'Initialisation (initCharts)
+    // 3. Fonction Principale d'Initialisation
     // ----------------------------------------------------------------------------------
 
     async function initCharts() {
         const conformiteData = await fetchConformiteData();
         
+        // Définition des données à utiliser (réelles ou statiques de repli)
         const conformite = conformiteData ? conformiteData.conformite : 86.7; 
         const progression = conformiteData ? conformiteData.progression : 85.5; 
-        const totalPlanifie = conformiteData ? conformiteData.totalDDR : 3434; 
-        const ddrThisYear = conformiteData ? conformiteData.ddrThisYear : 2935; 
+        const totalPlanifie = conformiteData ? conformiteData.totalDDR : 3434; // DDR Répertorié
+        const ddrThisYear = conformiteData ? conformiteData.ddrThisYear : 2935; // DDR Testé (Année en cours)
         
+        // Récupération des données d'évolution réelle et théorique DYNAMIQUES
         const evolutionData = conformiteData 
             ? await fetchEvolutionData(conformiteData.totalDDR) 
             : null;
 
+        // --- LOGIQUE DE SECOURS (FALLBACK) EN CAS D'ÉCHEC DE fetchConformiteData ---
         const fallbackTheoretical = Array(12).fill(0); 
         const fallbackReal = [
             5, 15, 28, 32, 80, 82, 82, 82, 82, 87, null, null
@@ -452,12 +457,15 @@
             real: real, 
             theoretical: fallbackTheoretical[index]
         }));
+        // --------------------------------------------------------------------------------------
         
+        // Rendu des graphiques
+        // Utilise les données dynamiques si disponibles, sinon les données de secours
         renderCharts(conformite, progression, totalPlanifie, ddrThisYear, evolutionData || evolutionDataFallback);
     }
 
     // ----------------------------------------------------------------------------------
-    // 4. Fonction de Rendu (renderCharts)
+    // 4. Fonction de Rendu (Séparation de la logique d'affichage)
     // ----------------------------------------------------------------------------------
 
     function renderCharts(conformite, progression, totalPlanifie, ddrThisYear, evolutionData) {
@@ -468,11 +476,10 @@
         
         // Mise à jour des valeurs textuelles
         document.getElementById('conformite-value').textContent = conformite.toFixed(1).replace('.', ',') + ' %';
-        document.getElementById('totalPlanifie').textContent = totalPlanifie; 
-        document.getElementById('totalTestes').textContent = ddrThisYear; 
+        document.getElementById('totalPlanifie').textContent = totalPlanifie; // DDR Répertorié
+        document.getElementById('totalTestes').textContent = ddrThisYear; // DDR Testé
 
-
-        // 1. Graphique de Conformité
+        // 1. Graphique de Conformité (Barre verticale)
         const conformiteCtx = document.getElementById('conformiteChart').getContext('2d');
         if (Chart.getChart(conformiteCtx)) Chart.getChart(conformiteCtx).destroy();
         new Chart(conformiteCtx, {
@@ -507,7 +514,7 @@
         });
 
 
-        // 2. Graphique de Progression (Anneau)
+        // 2. Graphique de Progression (Anneau - utilise maintenant la Progression calculée)
         const progressionCtx = document.getElementById('progressionChart').getContext('2d');
         if (Chart.getChart(progressionCtx)) Chart.getChart(progressionCtx).destroy();
         new Chart(progressionCtx, {
@@ -530,4 +537,58 @@
                     const { ctx, data, chartArea: { top, width, height } } = chart;
                     ctx.save();
                     ctx.font = 'bolder 2em Arial'; 
-                    ctx.fillStyle
+                    ctx.fillStyle = '#333'; 
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(data.datasets[0].data[0].toFixed(1).replace('.', ',') + ' %', width / 2, height / 2 + top);
+                    ctx.restore();
+                }
+            }]
+        });
+
+
+        // 3. Graphique d'Évolution (Ligne)
+        const evolutionCtx = document.getElementById('evolutionChart').getContext('2d');
+        if (Chart.getChart(evolutionCtx)) Chart.getChart(evolutionCtx).destroy();
+        new Chart(evolutionCtx, {
+            type: 'line',
+            data: {
+                labels: evolutionData.map(d => d.month),
+                datasets: [
+                    {
+                        label: 'Progression réelle',
+                        data: evolutionData.map(d => d.real), // Données réelles
+                        borderColor: successColor, backgroundColor: 'transparent',
+                        tension: 0.2, pointRadius: 3, borderWidth: 3
+                    },
+                    {
+                        label: 'Progression théorique',
+                        data: evolutionData.map(d => d.theoretical), // Données théoriques dynamiques (ou 0% si 2026)
+                        borderColor: primaryColor, backgroundColor: 'transparent',
+                        borderDash: [5, 5], tension: 0.2, pointRadius: 0, borderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top', labels: { usePointStyle: true, } },
+                    tooltip: {
+                        mode: 'index', intersect: false,
+                        callbacks: { 
+                            label: (context) => context.dataset.label + ': ' + (context.parsed.y !== null ? context.parsed.y.toFixed(1).replace('.', ',') + ' %' : 'N/A') 
+                        }
+                    }
+                },
+                scales: {
+                    y: { beginAtZero: true, max: 100, title: { display: false }, ticks: { callback: (value) => value + ' %' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    testConnexion()
+  </script>
+</body>
+</html>
