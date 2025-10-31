@@ -30,6 +30,14 @@
       min-height: 100vh;
       margin: 0;
       padding-top: 20px;
+      /* AJOUT CRITIQUE POUR ÉLIMINER LE FLASH */
+      opacity: 0; 
+      transition: opacity 0s; 
+    }
+    
+    /* Le JS ajoutera cette classe 'loaded' si la connexion est OK */
+    .loaded {
+        opacity: 1;
     }
 
     /* HEADER CONNEXION SUPABASE */
@@ -159,7 +167,7 @@
 
   </style>
 </head>
-<body>
+<body class="unloaded">
   
   <div id="top-left-controls">
     <button onclick="window.location.href='preparation.html'" class="dashboard-button">Préparation</button>
@@ -220,7 +228,7 @@
 
     // ----------------------------------------------------------------------------------
     // 1. Initialisation Supabase & Logique de Sécurité (checkAuthAndRole)
-    // ----------------------------------------------------------------------------------
+    // ------------------------------------------------------------------
     import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
     
     const SUPABASE_URL = 'https://ejirdcqcmmeybgitonmw.supabase.co'
@@ -276,6 +284,9 @@
             icon.textContent = '✓' 
             icon.style.color = 'green'
             label.style.color = 'green'
+            
+            // REND VISIBLE LA PAGE UNIQUEMENT SI LA VÉRIFICATION A RÉUSSI
+            document.body.classList.add('loaded'); // AJOUT CRITIQUE
 
             // Lance l'initialisation des graphiques (le site est chargé et autorisé)
             await initCharts(); 
@@ -289,6 +300,9 @@
             icon.textContent = '✕' 
             icon.style.color = 'red'
             label.style.color = 'red'
+            
+            // REND VISIBLE LA PAGE AVEC LES DONNÉES DE SECOURS
+            document.body.classList.add('loaded'); // AJOUT CRITIQUE
             
             // Utilise les valeurs de secours pour afficher le tableau de bord
             const fallbackTheoretical = Array(12).fill(0); 
