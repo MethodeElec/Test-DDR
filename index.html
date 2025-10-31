@@ -1,4 +1,221 @@
-<script type="module">
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Test DDR</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    /* VARIABLES COULEURS */
+    :root {
+      --primary-color: #0078d7; /* Bleu pour la progression théorique */
+      --success-color: #4caf50; /* Vert pour la conformité / progression réelle */
+      --card-bg: white;
+      --light-bg: #e0f7fa; /* Bleu très clair */
+      --dark-bg: #bbdefb;  /* Bleu clair */
+      --shadow-color: rgba(0,0,0,0.15);
+      --button-hover: #005bb5;
+      
+      /* NOUVELLES COULEURS POUR LA PRÉPARATION (Violet) */
+      --preparation-color: #9c27b0; /* Violet */ 
+      --preparation-hover: #8e24aa; /* Violet foncé au survol */
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      /* Style du fond dégradé */
+      background: linear-gradient(to bottom right, var(--light-bg), var(--dark-bg)); 
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      margin: 0;
+      padding-top: 20px;
+    }
+
+    /* HEADER CONNEXION SUPABASE */
+    header {
+      position: absolute;
+      top: 15px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      gap: normal; 
+    }
+    #dbLabel {
+      font-size: 0.8em; 
+      margin-right: 5px; 
+      color: #666;
+    }
+    #statusIcon {
+      font-size: 0.7em; 
+      font-weight: bold; 
+      line-height: 1.2; 
+    }
+    #status {
+      display: none; 
+    }
+    
+    /* NOUVEAU STYLE POUR LE BOUTON PREPARATION */
+    #top-left-controls {
+        position: absolute;
+        top: 50px;
+        left: 50px;
+    }
+    .dashboard-button {
+        /* TAILLE : PLUS LARGE ET MOINS HAUT */
+        padding: 20px 40px; 
+        font-size: 1.3em; 
+        
+        /* COULEUR : VIOLET POUR PRÉPARATION */
+        background-color: var(--preparation-color);
+        color: white;
+        
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: bold;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
+        transition: background-color 0.3s;
+    }
+    .dashboard-button:hover {
+        background-color: var(--preparation-hover);
+    }
+    /* ---------------- Styles du Tableau de Bord ---------------- */
+    #dashboard-title {
+        font-size: 2.5em;
+        font-weight: bold;
+        color: #004d40;
+        margin-bottom: 5px; /* Réduit la marge pour rapprocher la date */
+    }
+    /* Style pour la date */
+    #current-date {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #004d40;
+        margin-bottom: 40px; /* Ajoute un espace sous la date */
+    }
+    
+    #top-stats {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 50px;
+      margin-bottom: 40px;
+    }
+    
+    /* 1. Bloc de Conformité (Barre verticale) */
+    #conformite-block {
+        text-align: center;
+        width: 150px;
+    }
+    #conformite-value {
+        /* TAILLE DE RÉFÉRENCE: 2em */
+        font-size: 2em; 
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    #conformite-chart-container {
+        height: 150px;
+        width: 80px;
+        margin: 0 auto 10px;
+    }
+
+    /* 2. Bloc de Progression (Anneau et Texte) */
+    #progression-block {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+    #progression-chart-container {
+        /* Disque plus grand (200px) */
+        height: 200px; 
+        width: 200px;  
+    }
+    #progression-text {
+        text-align: left;
+        padding: 20px;
+        background-color: var(--card-bg);
+        border-radius: 8px;
+        box-shadow: 0 4px 6px var(--shadow-color);
+        font-size: 1.1em;
+    }
+    .data-label {
+        /* Texte du label en gras et noir foncé */
+        color: #333; 
+        font-weight: bold; 
+    }
+    .data-value {
+        font-size: 1.4em;
+        font-weight: bold;
+        /* Valeur en noir foncé */
+        color: #333;
+    }
+    
+    /* 3. Graphique d'Évolution (Grand graphique en bas) */
+    #evolution-card {
+        background-color: var(--card-bg);
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px var(--shadow-color);
+        width: 800px; 
+        max-width: 90%;
+    }
+    #evolution-chart-container {
+        height: 350px;
+    }
+
+  </style>
+</head>
+<body>
+  
+  <div id="top-left-controls">
+    <button onclick="window.location.href='preparation.html'" class="dashboard-button">Préparation</button>
+  </div>
+    
+  <header>
+    <span id="dbLabel">Connexion Base de Donnée</span>
+    <span id="statusIcon">⏳</span>
+  </header>
+  <div id="status" style="z-index: 1000; position: fixed; top: 0;">Vérification de la connexion...</div>
+
+  <h1 id="dashboard-title">Test DDR</h1>
+  <p id="current-date"></p> <div id="top-stats">
+    
+    <div id="conformite-block">
+        <div id="conformite-value">--,- %</div>
+        <div id="conformite-chart-container">
+            <canvas id="conformiteChart"></canvas>
+        </div>
+        <strong>CONFORMITE</strong>
+    </div>
+
+    <div id="progression-block">
+        <div id="progression-chart-container">
+            <canvas id="progressionChart"></canvas>
+        </div>
+        <div id="progression-text">
+            <div id="progression-ring-value" style="font-size: 1.6em; font-weight: bold; color: #333; margin-bottom: 5px;">PROGRESSION</div>
+            <p>
+                <span class="data-label">DDR Répertorié :</span>
+                <span class="data-value" id="totalPlanifie">----</span>
+            </p>
+            <p style="margin-top: 5px;">
+                <span class="data-label">DDR Testé :</span>
+                <span class="data-value" id="totalTestes">----</span>
+            </p>
+        </div>
+    </div>
+  </div>
+
+  <div id="evolution-card">
+      <div id="evolution-chart-container">
+          <canvas id="evolutionChart"></canvas>
+      </div>
+  </div>
+
+  <script type="module">
     // ----------------------------------------------------------------------------------
     // FONCTION POUR AFFICHER LA DATE
     // ----------------------------------------------------------------------------------
@@ -16,7 +233,7 @@
     import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
     
     const SUPABASE_URL = 'https://ejirdcqcmmeybgitonmw.supabase.co'
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqaXJkY3FjbW1leWJnaXRvbm13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1OTY2MjYsImV4cCI6MjA3NzE3MjYyNn0.4E93ufwJ-RIjV9qT0I4t3GiI9NIzVzN_ktwDPswT7ic'
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqaXJkY3FjbW1leWJnaXRvbm53Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1OTY2MjYsImV4cCI6MjA3NzE3MjYyNn0.4E93ufwJ-RIjV9qT0I4t3GiI9NIzVzN_ktwDPswT7ic'
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     
@@ -45,16 +262,15 @@
 
         // --- PARTIE AUTORISATION (RÔLE) ---
         try {
-            // On vérifie aussi la connexion à la BD en même temps que le rôle
+            // CORRECTION CRITIQUE : Utilisation des GUILLEMETS DOUBLES pour le nom de table avec espace
             const { data: profile, error: roleError } = await supabase
-                .from('utilisateur autorisation') // **Attention : Le nom de votre table est 'utilisateur autorisation'**
+                .from('"utilisateur autorisation"') 
                 .select('role')
                 .eq('user_id', session.user.id)
                 .single();
 
             if (roleError || !profile) {
                 console.error("Erreur de récupération du profil ou rôle manquant. Déconnexion forcée.", roleError);
-                // Si l'utilisateur n'a pas de rôle valide (erreur de sécurité), on le déconnecte.
                 await supabase.auth.signOut();
                 window.location.href = '/login.html';
                 return;
@@ -80,14 +296,14 @@
         } catch (e) {
             console.error("Erreur critique d'accès à la BD ou de vérification:", e);
             
-            // --- LOGIQUE DE SECOURS (FALLBACK) EN CAS D'ÉCHEC DE CONNEXION À LA BD ---
+            // LOGIQUE DE SECOURS (FALLBACK) EN CAS D'ÉCHEC DE CONNEXION À LA BD
             status.textContent = '❌ Erreur de connexion aux données'
             status.style.backgroundColor = '#ffdddd'
             icon.textContent = '✕' 
             icon.style.color = 'red'
             label.style.color = 'red'
             
-            // Utilise les valeurs de secours si la connexion aux données échoue (similaire à votre ancienne fonction)
+            // Utilise les valeurs de secours 
             const fallbackTheoretical = Array(12).fill(0); 
             const fallbackReal = [
                 5, 15, 28, 32, 80, 82, 82, 82, 82, 87, null, null 
@@ -103,9 +319,8 @@
 
 
     // ----------------------------------------------------------------------------------
-    // 2. Fonctions de Récupération des Données (Conservez le code d'origine)
+    // 2. Fonctions de Récupération des Données (Identiques au code d'origine)
     // ----------------------------------------------------------------------------------
-    // NOTE : Ces fonctions utiliseront la session Supabase établie par checkAuthAndRole()
     
     /**
      * Calcule le taux de conformité et de progression en interrogeant la table liste_ddr.
@@ -222,7 +437,7 @@
     }
     
     // ----------------------------------------------------------------------------------
-    // 3. Fonction Principale d'Initialisation
+    // 3. Fonction Principale d'Initialisation (Conservée)
     // ----------------------------------------------------------------------------------
 
     async function initCharts() {
@@ -239,7 +454,7 @@
             ? await fetchEvolutionData(conformiteData.totalDDR) 
             : null;
 
-        // --- LOGIQUE DE SECOURS (FALLBACK) EN CAS D'ÉCHEC DE fetchConformiteData ---
+        // LOGIQUE DE SECOURS (FALLBACK) EN CAS D'ÉCHEC DE fetchConformiteData
         const fallbackTheoretical = Array(12).fill(0); 
         const fallbackReal = [
             5, 15, 28, 32, 80, 82, 82, 82, 82, 87, null, null
@@ -250,15 +465,13 @@
             real: real, 
             theoretical: fallbackTheoretical[index]
         }));
-        // --------------------------------------------------------------------------------------
         
         // Rendu des graphiques
-        // Utilise les données dynamiques si disponibles, sinon les données de secours
         renderCharts(conformite, progression, totalPlanifie, ddrThisYear, evolutionData || evolutionDataFallback);
     }
 
     // ----------------------------------------------------------------------------------
-    // 4. Fonction de Rendu (Conservez le code d'origine)
+    // 4. Fonction de Rendu (Identique au code d'origine)
     // ----------------------------------------------------------------------------------
 
     function renderCharts(conformite, progression, totalPlanifie, ddrThisYear, evolutionData) {
@@ -382,7 +595,9 @@
     }
 
     // ----------------------------------------------------------------------------------
-    // APPEL FINAL : Lance le processus de vérification de l'accès (NOUVEAU)
+    // APPEL FINAL : Lance le processus de vérification de l'accès
     // ----------------------------------------------------------------------------------
     checkAuthAndRole();
   </script>
+</body>
+</html>
