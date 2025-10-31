@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Préparation - Accès Restreint</title>
+  <style>
+    /* Ajoutez ici votre CSS de préparation */
+    body { font-family: Arial, sans-serif; padding: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Page de Préparation des DDR</h1>
+  <p>Cette page est réservée aux utilisateurs autorisés (Administrateurs et Préparateurs).</p>
+  
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+    
+    // !!! VOS CLÉS SUPABASE !!!
+    const SUPABASE_URL = 'https://ejirdcqcmmeybgitonmw.supabase.co'
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqaXJkY3FjbW1leWJnaXRvbm13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1OTY2MjYsImV4cCI6MjA3NzE3MjYyNn0.4E93ufwJ-RIjV9qT0I4t3GiI9NIzVzN_ktwDPswT7ic'
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+    async function checkPreparationAccess() {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        // 1. VÉRIFIE CONNEXION (Doit être logué)
+        if (!session) {
+            window.location.href = '/login.html'; 
+            return;
+        }
+        
+        // 2. VÉRIFICATION DU RÔLE (Doit avoir le rôle de modification)
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('user_id', session.user.id)
+            .single();
+            
+        const userRole = profile?.role;
+
+        // RÔLE INSUFFISANT -> Redirection vers le tableau de bord
+        if (userRole !== 'admin' && userRole !== 'preparator') {
+            alert("Accès non autorisé à cette page.");
+            window.location.href = '/index.html'; 
+            return;
+        }
+
+        // Accès autorisé. Vous pouvez maintenant charger les données de préparation.
+        console.log(`Accès Préparation accordé pour le rôle: ${userRole}`);
+        // ... (Le reste de votre logique de chargement/modification des données va ici) ...
+    }
+
+    checkPreparationAccess();
+  </script>
+</body>
+</html>
