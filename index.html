@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Chargement...</title>
+</head>
+<body>
+    <script type="module">
+        // -----------------------------------------------------------
+        // LOGIQUE SIMPLIFIÉE DE REDIRECTION (Authentification)
+        // -----------------------------------------------------------
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+        
+        const SUPABASE_URL = 'https://ejirdcqcmmeybgitonmw.supabase.co'
+        const SUPABASE_ANON_KEY = '...' // Clé anonyme
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+        
+        async function checkSession() {
+            const { data: { session } } = await supabase.auth.getSession()
+
+            if (session) {
+                // L'utilisateur est connecté, on le dirige vers le tableau de bord renommé
+                window.location.href = './testDDR.html'
+            } else {
+                // L'utilisateur n'est pas connecté, on le dirige vers la page de connexion
+                window.location.href = './login.html' // Assurez-vous d'avoir une page login.html
+            }
+        }
+        
+        checkSession()
+    </script>
+    <p>Veuillez patienter...</p>
+</body>
+</html>
