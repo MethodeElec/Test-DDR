@@ -2,138 +2,100 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Connexion</title>
+    <title>Connexion DDR</title>
     <style>
-        :root {
-            --primary-color: #0078d7; 
-            --error-color: #d9534f;
-            --background-color: #f4f7f6;
-        }
-
         body {
             font-family: Arial, sans-serif;
-            background-color: var(--background-color);
+            background-color: #f4f7f6;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
             margin: 0;
         }
-
         .login-container {
-            background: white;
+            background-color: white;
             padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
             width: 350px;
             text-align: center;
         }
-
         h1 {
-            color: var(--primary-color);
-            margin-bottom: 25px;
+            color: #0078d7;
+            margin-bottom: 30px;
         }
-
-        input {
+        input[type="email"], input[type="password"] {
             width: 100%;
             padding: 12px;
             margin-bottom: 15px;
             border: 1px solid #ccc;
-            border-radius: 5px;
-            box-sizing: border-box; 
+            border-radius: 4px;
+            box-sizing: border-box;
         }
-
         button {
-            width: 100%;
-            padding: 12px;
-            background-color: var(--primary-color);
+            background-color: #0078d7;
             color: white;
+            padding: 12px 20px;
             border: none;
-            border-radius: 5px;
+            border-radius: 4px;
             cursor: pointer;
+            width: 100%;
             font-size: 1.1em;
             transition: background-color 0.3s;
         }
-
         button:hover {
             background-color: #005bb5;
         }
-
-        #errorMessage {
-            color: var(--error-color);
-            margin-top: 15px;
-            font-weight: bold;
+        #message {
+            margin-top: 20px;
+            color: red;
         }
     </style>
 </head>
 <body>
     <div class="login-container">
-        <h1>Connexion</h1>
-        <form id="loginForm">
-            <input type="email" id="email" placeholder="Email" required>
+        <h1>Connexion au Tableau de Bord</h1>
+        <form id="login-form">
+            <input type="email" id="email" placeholder="Adresse Email" required>
             <input type="password" id="password" placeholder="Mot de passe" required>
-            <button type="submit" id="loginButton">Se Connecter</button>
-            <div id="errorMessage"></div>
+            <button type="submit">Se Connecter</button>
         </form>
+        <p id="message"></p>
     </div>
 
     <script type="module">
         import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
+        
+        // VOS CLÉS SUPABASE (Identiques à index.html et testDDR.html)
         const SUPABASE_URL = 'https://ejirdcqcmmeybgitonmw.supabase.co'
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqaXJkY3FjbW1leWJnaXRvbm13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1OTY2MjYsImV4cCI6MjA3NzE3MjYyNn0.4E93ufwJ-RIjV9qT0I4t3GiI9NIzVzN_ktwDPswT7ic'
 
         const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+        const form = document.getElementById('login-form');
+        const messageElement = document.getElementById('message');
 
-        const loginForm = document.getElementById('loginForm');
-        const emailInput = document.getElementById('email');
-        const passwordInput = document.getElementById('password');
-        const errorMessage = document.getElementById('errorMessage');
-        const loginButton = document.getElementById('loginButton');
-
-
-        /**
-         * Vérifie si l'utilisateur est déjà connecté et redirige si oui.
-         * CECI PRÉVIENT LA BOUCLE DE REDIRECTION APRÈS UN LOGIN RÉUSSI.
-         */
-        async function checkCurrentSession() {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                // REDIRECTION SI DÉJÀ CONNECTÉ
-                window.location.href = '/index.html'; 
-            }
-        }
-        
-        checkCurrentSession();
-
-
-        // ----------------------------------------------------------------------------------
-        // GESTION DU LOGIN
-        // ----------------------------------------------------------------------------------
-        loginForm.addEventListener('submit', async (e) => {
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            errorMessage.textContent = '';
-            loginButton.disabled = true;
-            loginButton.textContent = 'Connexion en cours...';
+            messageElement.textContent = '';
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
 
-            const email = emailInput.value;
-            const password = passwordInput.value;
-
-            const { data, error } = await supabase.auth.signInWithPassword({
+            // Tentative de connexion
+            const { error } = await supabase.auth.signInWithPassword({
                 email: email,
                 password: password,
             });
 
             if (error) {
-                errorMessage.textContent = 'Échec de la connexion. Vérifiez votre email et mot de passe.';
-                console.error("Erreur de connexion:", error.message);
+                // Affichage de l'erreur
+                messageElement.textContent = `Erreur de connexion : ${error.message}`;
             } else {
-                // REDIRECTION APRÈS CONNEXION RÉUSSIE
-                window.location.href = '/index.html';
+                // Succès : Redirection vers la page de démarrage (index.html)
+                // index.html vérifiera alors la session et redirigera vers testDDR.html
+                window.location.href = './index.html'; 
             }
-
-            loginButton.disabled = false;
-            loginButton.textContent = 'Se Connecter';
         });
     </script>
 </body>
