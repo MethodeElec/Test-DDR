@@ -1,642 +1,624 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Test DDR</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <style>
-    /* VARIABLES COULEURS */
-    :root {
-      --primary-color: #0078d7; /* Bleu pour la progression théorique */
-      --success-color: #4caf50; /* Vert pour la conformité / progression réelle */
-      --card-bg: white;
-      --light-bg: #e0f7fa; /* Bleu très clair */
-      --dark-bg: #bbdefb;  /* Bleu clair */
-      --shadow-color: rgba(0,0,0,0.15);
-      --button-hover: #005bb5;
-      
-      /* NOUVELLES COULEURS POUR LA PRÉPARATION (Violet) */
-      --preparation-color: #9c27b0; /* Violet */ 
-      --preparation-hover: #8e24aa; /* Violet foncé au survol */
-      
-      /* COULEUR DE DÉCONNEXION (Rouge) */
-      --logout-color: #d32f2f;
-      --logout-hover: #b71c1c;
-    }
+  <meta charset="UTF-8">
+  <title>Test DDR</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    /* VARIABLES COULEURS */
+    :root {
+      --primary-color: #0078d7; /* Bleu pour la progression théorique */
+      --success-color: #4caf50; /* Vert pour la conformité / progression réelle */
+      --card-bg: white;
+      --light-bg: #e0f7fa; /* Bleu très clair */
+      --dark-bg: #bbdefb;  /* Bleu clair */
+      --shadow-color: rgba(0,0,0,0.15);
+      --button-hover: #005bb5;
+      
+      /* NOUVELLES COULEURS POUR LA PRÉPARATION (Violet) */
+      --preparation-color: #9c27b0; /* Violet */ 
+      --preparation-hover: #8e24aa; /* Violet foncé au survol */
+    }
 
-    body {
-      font-family: Arial, sans-serif;
-      /* Style du fond dégradé */
-      background: linear-gradient(to bottom right, var(--light-bg), var(--dark-bg)); 
-      color: #333;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      min-height: 100vh;
-      margin: 0;
-      padding-top: 20px;
-    }
+    body {
+      font-family: Arial, sans-serif;
+      /* Style du fond dégradé */
+      background: linear-gradient(to bottom right, var(--light-bg), var(--dark-bg)); 
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      margin: 0;
+      padding-top: 20px;
+    }
 
-    /* HEADER CONNEXION SUPABASE ET DÉCONNEXION */
-    header {
-      position: absolute;
-      top: 15px;
-      right: 20px;
-      display: flex;
-      align-items: center;
-      gap: 10px; /* Ajout d'un écart */
-    }
-    #dbLabel {
-      font-size: 0.8em; 
-      color: #666;
-    }
-    #statusIcon {
-      font-size: 0.7em; 
-      font-weight: bold; 
-      line-height: 1.2; 
-    }
-    #status {
-      display: none; 
-    }
-    
-    /* NOUVEAU STYLE POUR LE BOUTON DÉCONNEXION */
-    #logout-button {
-        background-color: var(--logout-color);
-        color: white;
-        padding: 8px 15px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-weight: bold;
-        font-size: 0.9em;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
-        transition: background-color 0.3s;
-    }
-    #logout-button:hover {
-        background-color: var(--logout-hover);
-    }
-    
-    /* NOUVEAU STYLE POUR LE BOUTON PREPARATION */
-    #top-left-controls {
-        position: absolute;
-        top: 50px;
-        left: 50px;
-    }
-    .dashboard-button {
-        /* TAILLE : PLUS LARGE ET MOINS HAUT */
-        padding: 20px 40px; 
-        font-size: 1.3em; 
-        
-        /* COULEUR : VIOLET POUR PRÉPARATION */
-        background-color: var(--preparation-color);
-        color: white;
-        
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-weight: bold;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
-        transition: background-color 0.3s;
-    }
-    .dashboard-button:hover {
-        background-color: var(--preparation-hover);
-    }
-    /* ---------------- Styles du Tableau de Bord ---------------- */
-    #dashboard-title {
-        font-size: 2.5em;
-        font-weight: bold;
-        color: #004d40;
-        margin-bottom: 5px; /* Réduit la marge pour rapprocher la date */
-    }
-    /* Style pour la date */
-    #current-date {
-        font-size: 1.2em;
-        font-weight: bold;
-        color: #004d40;
-        margin-bottom: 40px; /* Ajoute un espace sous la date */
-    }
-    
-    #top-stats {
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      gap: 50px;
-      margin-bottom: 40px;
-    }
-    
-    /* 1. Bloc de Conformité (Barre verticale) */
-    #conformite-block {
-        text-align: center;
-        width: 150px;
-    }
-    #conformite-value {
-        /* TAILLE DE RÉFÉRENCE: 2em */
-        font-size: 2em; 
-        font-weight: bold;
-        margin-bottom: 10px;
-    }
-    #conformite-chart-container {
-        height: 150px;
-        width: 80px;
-        margin: 0 auto 10px;
-    }
+    /* HEADER CONNEXION SUPABASE */
+    header {
+      position: absolute;
+      top: 15px;
+      right: 20px;
+      display: flex;
+      flex-direction: column; /* Empiler verticalement */
+      align-items: flex-end; /* Aligner à droite */
+      gap: 0; 
+    }
+    #connection-line { /* Nouvelle ligne pour maintenir l'alignement horizontal de la première ligne */
+        display: flex;
+        align-items: center;
+        gap: normal; 
+        margin-bottom: 2px;
+    }
+    #dbLabel {
+      font-size: 0.8em; 
+      margin-right: 5px; 
+      color: #666;
+    }
+    #statusIcon {
+      font-size: 0.7em; 
+      font-weight: bold; 
+      line-height: 1.2; 
+    }
+    #userStatusLine { /* Nouvelle ligne pour le statut de l'utilisateur */
+        font-size: 0.8em; 
+        color: #666;
+        display: none; 
+    }
+    #status {
+      display: none; 
+    }
+    
+    /* NOUVEAU STYLE POUR LE BOUTON PREPARATION */
+    #top-left-controls {
+        position: absolute;
+        top: 50px;
+        left: 50px;
+    }
+    .dashboard-button {
+        /* TAILLE : PLUS LARGE ET MOINS HAUT */
+        padding: 20px 40px; 
+        font-size: 1.3em; 
+        
+        /* COULEUR : VIOLET POUR PRÉPARATION */
+        background-color: var(--preparation-color);
+        color: white;
+        
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: bold;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
+        transition: background-color 0.3s;
+    }
+    .dashboard-button:hover {
+        background-color: var(--preparation-hover);
+    }
+    /* ---------------- Styles du Tableau de Bord ---------------- */
+    #dashboard-title {
+        font-size: 2.5em;
+        font-weight: bold;
+        color: #004d40;
+        margin-bottom: 5px; /* Réduit la marge pour rapprocher la date */
+    }
+    /* Style pour la date */
+    #current-date {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #004d40;
+        margin-bottom: 40px; /* Ajoute un espace sous la date */
+    }
+    
+    #top-stats {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 50px;
+      margin-bottom: 40px;
+    }
+    
+    /* 1. Bloc de Conformité (Barre verticale) */
+    #conformite-block {
+        text-align: center;
+        width: 150px;
+    }
+    #conformite-value {
+        /* TAILLE DE RÉFÉRENCE: 2em */
+        font-size: 2em; 
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    #conformite-chart-container {
+        height: 150px;
+        width: 80px;
+        margin: 0 auto 10px;
+    }
 
-    /* 2. Bloc de Progression (Anneau et Texte) */
-    #progression-block {
-        display: flex;
-        align-items: center;
-        gap: 20px;
-    }
-    #progression-chart-container {
-        /* Disque plus grand (200px) */
-        height: 200px; 
-        width: 200px;  
-    }
-    #progression-text {
-        text-align: left;
-        padding: 20px;
-        background-color: var(--card-bg);
-        border-radius: 8px;
-        box-shadow: 0 4px 6px var(--shadow-color);
-        font-size: 1.1em;
-    }
-    .data-label {
-        /* Texte du label en gras et noir foncé */
-        color: #333; 
-        font-weight: bold; 
-    }
-    .data-value {
-        font-size: 1.4em;
-        font-weight: bold;
-        /* Valeur en noir foncé */
-        color: #333;
-    }
-    
-    /* 3. Graphique d'Évolution (Grand graphique en bas) */
-    #evolution-card {
-        background-color: var(--card-bg);
-        padding: 30px;
-        border-radius: 10px;
-        box-shadow: 0 4px 12px var(--shadow-color);
-        width: 800px; 
-        max-width: 90%;
-    }
-    #evolution-chart-container {
-        height: 350px;
-    }
+    /* 2. Bloc de Progression (Anneau et Texte) */
+    #progression-block {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+    #progression-chart-container {
+        /* Disque plus grand (200px) */
+        height: 200px; 
+        width: 200px;  
+    }
+    #progression-text {
+        text-align: left;
+        padding: 20px;
+        background-color: var(--card-bg);
+        border-radius: 8px;
+        box-shadow: 0 4px 6px var(--shadow-color);
+        font-size: 1.1em;
+    }
+    .data-label {
+        /* Texte du label en gras et noir foncé */
+        color: #333; 
+        font-weight: bold; 
+    }
+    .data-value {
+        font-size: 1.4em;
+        font-weight: bold;
+        /* Valeur en noir foncé */
+        color: #333;
+    }
+    
+    /* 3. Graphique d'Évolution (Grand graphique en bas) */
+    #evolution-card {
+        background-color: var(--card-bg);
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px var(--shadow-color);
+        width: 800px; 
+        max-width: 90%;
+    }
+    #evolution-chart-container {
+        height: 350px;
+    }
 
-  </style>
+  </style>
 </head>
 <body>
-  
-  <div id="top-left-controls">
-    <button onclick="window.location.href='preparation.html'" class="dashboard-button">Préparation</button>
-  </div>
-    
-  <header>
-        <button id="logout-button">Se Déconnecter</button> 
-        <span id="dbLabel">Connexion Base de Donnée</span>
-    <span id="statusIcon">⏳</span>
-  </header>
-  <div id="status" style="z-index: 1000; position: fixed; top: 0;">Vérification de la connexion...</div>
+  
+  <div id="top-left-controls">
+    <button onclick="window.location.href='preparation.html'" class="dashboard-button">Préparation</button>
+  </div>
+    
+  <header>
+    <div id="connection-line">
+        <span id="dbLabel">Connexion Base de Donnée</span>
+        <span id="statusIcon">⏳</span>
+    </div>
+    <span id="userStatusLine"></span>
+  </header>
+  <div id="status" style="z-index: 1000; position: fixed; top: 0;">Vérification de la connexion...</div>
 
-  <h1 id="dashboard-title">Test DDR</h1>
-  <p id="current-date"></p> 
-  <div id="top-stats">
-    
-    <div id="conformite-block">
-        <div id="conformite-value">--,- %</div>
-        <div id="conformite-chart-container">
-            <canvas id="conformiteChart"></canvas>
-        </div>
-        <strong>CONFORMITE</strong>
-    </div>
+  <h1 id="dashboard-title">Test DDR</h1>
+  <p id="current-date"></p> <div id="top-stats">
+    
+    <div id="conformite-block">
+        <div id="conformite-value">--,- %</div>
+        <div id="conformite-chart-container">
+            <canvas id="conformiteChart"></canvas>
+        </div>
+        <strong>CONFORMITE</strong>
+    </div>
 
-    <div id="progression-block">
-        <div id="progression-chart-container">
-            <canvas id="progressionChart"></canvas>
-        </div>
-        <div id="progression-text">
-            <div id="progression-ring-value" style="font-size: 1.6em; font-weight: bold; color: #333; margin-bottom: 5px;">PROGRESSION</div>
-            <p>
-                <span class="data-label">DDR Répertorié :</span>
-                <span class="data-value" id="totalPlanifie">----</span>
-            </p>
-            <p style="margin-top: 5px;">
-                <span class="data-label">DDR Testé :</span>
-                <span class="data-value" id="totalTestes">----</span>
-            </p>
-        </div>
-    </div>
-  </div>
+    <div id="progression-block">
+        <div id="progression-chart-container">
+            <canvas id="progressionChart"></canvas>
+        </div>
+        <div id="progression-text">
+            <div id="progression-ring-value" style="font-size: 1.6em; font-weight: bold; color: #333; margin-bottom: 5px;">PROGRESSION</div>
+            <p>
+                <span class="data-label">DDR Répertorié :</span>
+                <span class="data-value" id="totalPlanifie">----</span>
+            </p>
+            <p style="margin-top: 5px;">
+                <span class="data-label">DDR Testé :</span>
+                <span class="data-value" id="totalTestes">----</span>
+            </p>
+        </div>
+    </div>
+  </div>
 
-  <div id="evolution-card">
-      <div id="evolution-chart-container">
-          <canvas id="evolutionChart"></canvas>
-      </div>
-  </div>
+  <div id="evolution-card">
+      <div id="evolution-chart-container">
+          <canvas id="evolutionChart"></canvas>
+      </div>
+  </div>
 
-  <script type="module">
-    // ----------------------------------------------------------------------------------
-    // FONCTION POUR AFFICHER LA DATE
-    // ----------------------------------------------------------------------------------
-    function displayCurrentDate() {
-        const dateElement = document.getElementById('current-date');
-        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-        const today = new Date();
-        // Affichage de la date formatée en français
-        dateElement.textContent = today.toLocaleDateString('fr-FR', options);
-    }
-
-    // ----------------------------------------------------------------------------------
-    // 1. Initialisation Supabase & Connexion
-    // ----------------------------------------------------------------------------------
-    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-    
-    const SUPABASE_URL = 'https://ejirdcqcmmeybgitonmw.supabase.co'
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqaXJkY3FjbW1leWJnaXRvbm13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1OTY2MjYsImV4cCI6MjA3NzE3MjYyNn0.4E93ufwJ-RIjV9qT0I4t3GiI9NIzVzN_ktwDPswT7ic'
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-    
-    // ----------------------------------------------------
-    // ➡️ NOUVELLE FONCTION DE DÉCONNEXION
-    // ----------------------------------------------------
-    async function handleLogout() {
-        const { error } = await supabase.auth.signOut();
-
-        if (error) {
-            console.error("Erreur de déconnexion:", error.message);
-            alert("Erreur lors de la déconnexion. Veuillez réessayer.");
-        } else {
-            // Succès : Redirection vers index.html qui se chargera de renvoyer vers login.html
-            window.location.href = './index.html'; 
-        }
-    }
-    
-    /**
-     * Tente une connexion minimale à Supabase.
-     */
-    async function testConnexion() {
-      // Afficher la date avant de tenter la connexion
-      displayCurrentDate(); 
-      
-      const status = document.getElementById('status')
-      const icon = document.getElementById('statusIcon')
-      const label = document.getElementById('dbLabel')
-
-      try {
-        const { error } = await supabase.from('fake_table').select('*').limit(1)
-
-        if (!error || (error && error.message.includes('schema cache'))) {
-          status.textContent = '' 
-          status.style.backgroundColor = 'transparent'
-          status.style.boxShadow = 'none' 
-          icon.textContent = '✓' 
-          icon.style.color = 'green'
-          label.style.color = 'green'
-          
-          await initCharts(); 
-
-        } else {
-          throw error
-        }
-      } catch (err) {
-        console.error(err)
-        status.textContent = '❌ Erreur : ' + err.message
-        status.style.backgroundColor = '#ffdddd'
-        status.style.boxShadow = '0 2px 5px rgba(0,0,0,0.1)'
-        icon.textContent = '✕' 
-        icon.style.color = 'red'
-        label.style.color = 'red'
-        
-        // --- LOGIQUE DE SECOURS (FALLBACK) EN CAS D'ÉCHEC DE CONNEXION ---
-        const fallbackTheoretical = Array(12).fill(0); 
-        const fallbackReal = [
-            5, 15, 28, 32, 80, 82, 82, 82, 82, 87, null, null 
-        ];
-        
-        const evolutionDataFallback = fallbackReal.map((real, index) => ({
-            month: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'][index],
-            real: real, 
-            theoretical: fallbackTheoretical[index]
-        }));
-        // ---------------------------------------------------------------------------
-
-        // Utilise les valeurs de secours si la connexion échoue
-        renderCharts(86.7, 85.5, 3434, 2935, evolutionDataFallback);
-      }
-    }
-
-    // ----------------------------------------------------------------------------------
-    // 2. Fonctions de Récupération des Données (Conformité, Progression & Évolution)
-    // ----------------------------------------------------------------------------------
-
-    /**
-     * Calcule le taux de conformité et de progression en interrogeant la table liste_ddr.
-     */
-    async function fetchConformiteData() {
-        const currentYear = new Date().getFullYear();
-        const startOfYear = `${currentYear}-01-01`;
-        const endOfYear = `${currentYear}-12-31`;
-
-        // 1. Total DDR Répertorié
-        const { count: totalDDR, error: totalError } = await supabase
-            .from('liste_ddr')
-            .select('*', { count: 'exact', head: true });
-
-        // 2. Total DDR Expirés (Non conformes)
-        const { count: expiredDDR, error: expiredError } = await supabase
-            .from('liste_ddr')
-            .select('*', { count: 'exact', head: true })
-            .lt('Date prochain controle', new Date().toISOString().split('T')[0]); 
-
-        // 3. Total DDR à faire / testés cette année (Progression)
-        const { count: ddrThisYear, error: ddrThisYearError } = await supabase
-            .from('liste_ddr')
-            .select('*', { count: 'exact', head: true })
-            .gte('Date prochain controle', startOfYear) 
-            .lte('Date prochain controle', endOfYear); 
-
-        if (totalError || expiredError || ddrThisYearError || totalDDR === null || expiredDDR === null || ddrThisYear === null) {
-            console.error('Erreur lors de la récupération des données de DDR:', totalError || expiredError || ddrThisYearError);
-            return null; 
-        }
-
-        if (totalDDR === 0) {
-            return { conformite: 100, progression: 0, totalDDR: 0, ddrThisYear: 0 };
-        }
-
-        const nonConformiteRate = (expiredDDR / totalDDR) * 100;
-        const conformiteRate = 100 - nonConformiteRate;
-        
-        const progressionRate = (ddrThisYear / totalDDR) * 100;
-
-        return { 
-            conformite: conformiteRate,
-            progression: progressionRate,
-            totalDDR: totalDDR, 
-            ddrThisYear: ddrThisYear 
-        };
-    }
-    
-    /**
-     * Récupère les données d'évolution réelle et théorique cumulées par mois, 
-     * toutes deux filtrées pour l'année en cours.
-     */
-    async function fetchEvolutionData(totalDDR) {
-        if (totalDDR === 0) {
-            // Retourne des données à 0% si aucun DDR n'est répertorié
-            return Array(12).fill(0).map((_, index) => ({ 
-                month: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'][index],
-                real: 0, 
-                theoretical: 0 
-            }));
-        }
-
-        const todayDate = new Date();
-        const currentYear = todayDate.getFullYear();
-        const currentMonth = todayDate.getMonth() + 1; 
-        const startOfYear = `${currentYear}-01-01`;
-
-        const evolutionData = [];
-        
-        for (let month = 1; month <= 12; month++) {
-            const monthLabel = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'][month - 1];
-            let realPercentage = null; 
-            let theoreticalPercentage = 0;
-            
-            // --- LOGIQUE DE PROGRESSION THÉORIQUE (Date planifiee) : DYNAMIQUE ET CUMULÉE ---
-            
-            // Borne à la fin du mois
-            const plannedEndDateFilter = new Date(currentYear, month, 0).toISOString().split('T')[0];
-
-            // Requête: Compter les DDR planifiés entre le 1er Janvier (startOfYear) et la fin du mois actuel (plannedEndDateFilter)
-            const { count: plannedUpToMonth, error: plannedError } = await supabase
-                .from('liste_ddr')
-                .select('*', { count: 'exact', head: true })
-                .lte('Date planifiee', plannedEndDateFilter)
-                .gte('Date planifiee', startOfYear); // Filtre pour l'année en cours
-
-            if (plannedError) {
-                console.error(`Erreur de récupération des données planifiées jusqu'au mois ${month}:`, plannedError);
-            } else {
-                // theoreticalPercentage sera 0 si plannedUpToMonth est 0 (car toutes les dates sont en 2026)
-                theoreticalPercentage = (plannedUpToMonth || 0) / totalDDR * 100;
-            }
-
-            // --- LOGIQUE DE PROGRESSION RÉELLE (Date de dernier controle) : DYNAMIQUE ET CUMULÉE ---
-
-            if (month <= currentMonth) {
-                // Pour les mois passés et le mois en cours
-                
-                let realEndDateFilter;
-                if (month === currentMonth) {
-                    // Borne au jour actuel (Oct 31) pour le mois en cours
-                    realEndDateFilter = todayDate.toISOString().split('T')[0];
-                } else {
-                    // Borne à la fin du mois pour les mois passés
-                    realEndDateFilter = plannedEndDateFilter; 
-                }
-
-                // Requête: Compter les DDR testés jusqu'à la date/fin du mois (et depuis le début de l'année)
-                const { count: testedUpToMonth, error: realError } = await supabase
-                    .from('liste_ddr')
-                    .select('*', { count: 'exact', head: true })
-                    .lte('Date de dernier controle', realEndDateFilter)
-                    .gte('Date de dernier controle', startOfYear); 
-
-                if (realError) {
-                    console.error(`Erreur de récupération des données réelles jusqu'au mois ${month}:`, realError);
-                } else {
-                    realPercentage = (testedUpToMonth || 0) / totalDDR * 100;
-                }
-            }
-            // else: realPercentage reste à 'null' pour les mois futurs
-
-            
-            evolutionData.push({ 
-                month: monthLabel,
-                real: realPercentage, // Sera null pour les mois futurs
-                theoretical: theoreticalPercentage // Calculé dynamiquement pour l'année en cours
-            });
-        }
-
-        return evolutionData;
-    }
-    
-    // ----------------------------------------------------------------------------------
-    // 3. Fonction Principale d'Initialisation
-    // ----------------------------------------------------------------------------------
-
-    async function initCharts() {
-        const conformiteData = await fetchConformiteData();
-        
-        // Définition des données à utiliser (réelles ou statiques de repli)
-        const conformite = conformiteData ? conformiteData.conformite : 86.7; 
-        const progression = conformiteData ? conformiteData.progression : 85.5; 
-        const totalPlanifie = conformiteData ? conformiteData.totalDDR : 3434; // DDR Répertorié
-        const ddrThisYear = conformiteData ? conformiteData.ddrThisYear : 2935; // DDR Testé (Année en cours)
-        
-        // Récupération des données d'évolution réelle et théorique DYNAMIQUES
-        const evolutionData = conformiteData 
-            ? await fetchEvolutionData(conformiteData.totalDDR) 
-            : null;
-
-        // --- LOGIQUE DE SECOURS (FALLBACK) EN CAS D'ÉCHEC DE fetchConformiteData ---
-        const fallbackTheoretical = Array(12).fill(0); 
-        const fallbackReal = [
-            5, 15, 28, 32, 80, 82, 82, 82, 82, 87, null, null
-        ];
-        
-        const evolutionDataFallback = fallbackReal.map((real, index) => ({
-            month: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'][index],
-            real: real, 
-            theoretical: fallbackTheoretical[index]
-        }));
-        // --------------------------------------------------------------------------------------
-        
-        // Rendu des graphiques
-        // Utilise les données dynamiques si disponibles, sinon les données de secours
-        renderCharts(conformite, progression, totalPlanifie, ddrThisYear, evolutionData || evolutionDataFallback);
-    }
-
-    // ----------------------------------------------------------------------------------
-    // 4. Fonction de Rendu (Séparation de la logique d'affichage)
-    // ----------------------------------------------------------------------------------
-
-    function renderCharts(conformite, progression, totalPlanifie, ddrThisYear, evolutionData) {
-        // COULEURS DU THÈME
-        const successColor = '#4caf50'; // Vert
-        const primaryColor = '#0078d7'; // Bleu
-        const greyColor = '#e0e0e0';
-        
-        // Mise à jour des valeurs textuelles
-        document.getElementById('conformite-value').textContent = conformite.toFixed(1).replace('.', ',') + ' %';
-        document.getElementById('totalPlanifie').textContent = totalPlanifie; // DDR Répertorié
-        document.getElementById('totalTestes').textContent = ddrThisYear; // DDR Testé
-
-        // 1. Graphique de Conformité (Barre verticale)
-        const conformiteCtx = document.getElementById('conformiteChart').getContext('2d');
-        if (Chart.getChart(conformiteCtx)) Chart.getChart(conformiteCtx).destroy();
-        new Chart(conformiteCtx, {
-            type: 'bar',
-            data: {
-                labels: [''],
-                datasets: [
-                    {
-                        label: 'Manquant',
-                        data: [100 - conformite],
-                        backgroundColor: greyColor, 
-                        borderRadius: 10,
-                    },
-                    {
-                        label: 'Conformité',
-                        data: [conformite],
-                        backgroundColor: successColor, 
-                        borderWidth: 2,
-                        borderRadius: 10,
-                    }
-                ]
-            },
-            options: {
-                responsive: true, 
-                maintainAspectRatio: false,
-                scales: { 
-                    x: { display: false, stacked: true }, 
-                    y: { display: false, stacked: true, max: 100, reverse: true } 
-                },
-                plugins: { legend: { display: false }, tooltip: { enabled: false } }
-            }
-        });
-
-
-        // 2. Graphique de Progression (Anneau - utilise maintenant la Progression calculée)
-        const progressionCtx = document.getElementById('progressionChart').getContext('2d');
-        if (Chart.getChart(progressionCtx)) Chart.getChart(progressionCtx).destroy();
-        new Chart(progressionCtx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Prévus cette année', 'Hors année'],
-                datasets: [{
-                    data: [progression, 100 - progression],
-                    backgroundColor: [successColor, greyColor], 
-                    borderWidth: 0,
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false, cutout: '70%', 
-                plugins: { legend: { display: false }, tooltip: { enabled: false } }
-            },
-            plugins: [{
-                id: 'textCenter',
-                beforeDatasetsDraw(chart, args, pluginOptions) {
-                    const { ctx, data, chartArea: { top, width, height } } = chart;
-                    ctx.save();
-                    ctx.font = 'bolder 2em Arial'; 
-                    ctx.fillStyle = '#333'; 
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(data.datasets[0].data[0].toFixed(1).replace('.', ',') + ' %', width / 2, height / 2 + top);
-                    ctx.restore();
-                }
-            }]
-        });
-
-
-        // 3. Graphique d'Évolution (Ligne)
-        const evolutionCtx = document.getElementById('evolutionChart').getContext('2d');
-        if (Chart.getChart(evolutionCtx)) Chart.getChart(evolutionCtx).destroy();
-        new Chart(evolutionCtx, {
-            type: 'line',
-            data: {
-                labels: evolutionData.map(d => d.month),
-                datasets: [
-                    {
-                        label: 'Progression réelle',
-                        data: evolutionData.map(d => d.real), // Données réelles
-                        borderColor: successColor, backgroundColor: 'transparent',
-                        tension: 0.2, pointRadius: 3, borderWidth: 3
-                    },
-                    {
-                        label: 'Progression théorique',
-                        data: evolutionData.map(d => d.theoretical), // Données théoriques dynamiques (ou 0% si 2026)
-                        borderColor: primaryColor, backgroundColor: 'transparent',
-                        borderDash: [5, 5], tension: 0.2, pointRadius: 0, borderWidth: 2
-                    }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'top', labels: { usePointStyle: true, } },
-                    tooltip: {
-                        mode: 'index', intersect: false,
-                        callbacks: { 
-                            label: (context) => context.dataset.label + ': ' + (context.parsed.y !== null ? context.parsed.y.toFixed(1).replace('.', ',') + ' %' : 'N/A') 
-                        }
-                    }
-                },
-                scales: {
-                    y: { beginAtZero: true, max: 100, title: { display: false }, ticks: { callback: (value) => value + ' %' } },
-                    x: { grid: { display: false } }
-                }
-            }
-        });
-    }
+  <script type="module">
+    // ----------------------------------------------------------------------------------
+    // FONCTION POUR AFFICHER LA DATE
+    // ----------------------------------------------------------------------------------
+    function displayCurrentDate() {
+        const dateElement = document.getElementById('current-date');
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        const today = new Date();
+        // Affichage de la date formatée en français
+        dateElement.textContent = today.toLocaleDateString('fr-FR', options);
+    }
 
     // ----------------------------------------------------------------------------------
-    // 5. ATTACHER LES ÉVÉNEMENTS
+    // 1. Initialisation Supabase & Connexion
     // ----------------------------------------------------------------------------------
-    document.addEventListener('DOMContentLoaded', () => {
-        // Attacher l'événement au bouton de déconnexion
-        const logoutButton = document.getElementById('logout-button');
-        if (logoutButton) {
-            logoutButton.addEventListener('click', handleLogout);
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+    
+    const SUPABASE_URL = 'https://ejirdcqcmmeybgitonmw.supabase.co'
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqaXJkY3FjbW1leWJnaXRvbm13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1OTY2MjYsImV4cCI6MjA3NzE3MjYyNn0.4E93ufwJ-RIjV9qT0I4t3GiI9NIzVzN_ktwDPswT7ic'
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    
+    /**
+     * Tente une connexion minimale à Supabase.
+     */
+    async function testConnexion() {
+      // Afficher la date avant de tenter la connexion
+      displayCurrentDate(); 
+      
+      const status = document.getElementById('status')
+      const icon = document.getElementById('statusIcon')
+      const label = document.getElementById('dbLabel')
+      const userStatus = document.getElementById('userStatusLine'); // Récupération de l'élément
+
+      try {
+        const { error } = await supabase.from('fake_table').select('*').limit(1)
+
+        if (!error || (error && error.message.includes('schema cache'))) {
+          status.textContent = '' 
+          status.style.backgroundColor = 'transparent'
+          status.style.boxShadow = 'none' 
+          
+          // Statut DB: Succès (Vert)
+          icon.textContent = '✓' 
+          icon.style.color = 'green'
+          label.style.color = 'green'
+          
+          // Statut Utilisateur: Déconnecté (Rouge) - pour simuler un bouton
+          userStatus.textContent = 'Nom Prénom : Déconnecté';
+          userStatus.style.display = 'block';
+          userStatus.style.color = 'red';
+          
+          await initCharts(); 
+
+        } else {
+          throw error
         }
-    });
+      } catch (err) {
+        console.error(err)
+        status.textContent = '❌ Erreur : ' + err.message
+        status.style.backgroundColor = '#ffdddd'
+        status.style.boxShadow = '0 2px 5px rgba(0,0,0,0.1)'
+        
+        // Statut DB: Échec (Rouge)
+        icon.textContent = '✕' 
+        icon.style.color = 'red'
+        label.style.color = 'red'
+        
+        // Statut Utilisateur: Affiché en cas d'erreur DB également (pour information)
+        userStatus.textContent = 'Nom Prénom : Déconnecté';
+        userStatus.style.display = 'block';
+        userStatus.style.color = 'red';
+        
+        // --- LOGIQUE DE SECOURS (FALLBACK) EN CAS D'ÉCHEC DE CONNEXION ---
+        const fallbackTheoretical = Array(12).fill(0); 
+        const fallbackReal = [
+            5, 15, 28, 32, 80, 82, 82, 82, 82, 87, null, null 
+        ];
+        
+        const evolutionDataFallback = fallbackReal.map((real, index) => ({
+            month: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'][index],
+            real: real, 
+            theoretical: fallbackTheoretical[index]
+        }));
+        // ---------------------------------------------------------------------------
 
-    testConnexion()
-  </script>
+        // Utilise les valeurs de secours si la connexion échoue
+        renderCharts(86.7, 85.5, 3434, 2935, evolutionDataFallback);
+      }
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 2. Fonctions de Récupération des Données (Conformité, Progression & Évolution)
+    // ----------------------------------------------------------------------------------
+
+    /**
+     * Calcule le taux de conformité et de progression en interrogeant la table liste_ddr.
+     */
+    async function fetchConformiteData() {
+        const currentYear = new Date().getFullYear();
+        const startOfYear = `${currentYear}-01-01`;
+        const endOfYear = `${currentYear}-12-31`;
+
+        // 1. Total DDR Répertorié
+        const { count: totalDDR, error: totalError } = await supabase
+            .from('liste_ddr')
+            .select('*', { count: 'exact', head: true });
+
+        // 2. Total DDR Expirés (Non conformes)
+        const { count: expiredDDR, error: expiredError } = await supabase
+            .from('liste_ddr')
+            .select('*', { count: 'exact', head: true })
+            .lt('Date prochain controle', new Date().toISOString().split('T')[0]); 
+
+        // 3. Total DDR à faire / testés cette année (Progression)
+        const { count: ddrThisYear, error: ddrThisYearError } = await supabase
+            .from('liste_ddr')
+            .select('*', { count: 'exact', head: true })
+            .gte('Date prochain controle', startOfYear) 
+            .lte('Date prochain controle', endOfYear); 
+
+        if (totalError || expiredError || ddrThisYearError || totalDDR === null || expiredDDR === null || ddrThisYear === null) {
+            console.error('Erreur lors de la récupération des données de DDR:', totalError || expiredError || ddrThisYearError);
+            return null; 
+        }
+
+        if (totalDDR === 0) {
+            return { conformite: 100, progression: 0, totalDDR: 0, ddrThisYear: 0 };
+        }
+
+        const nonConformiteRate = (expiredDDR / totalDDR) * 100;
+        const conformiteRate = 100 - nonConformiteRate;
+        
+        const progressionRate = (ddrThisYear / totalDDR) * 100;
+
+        return { 
+            conformite: conformiteRate,
+            progression: progressionRate,
+            totalDDR: totalDDR, 
+            ddrThisYear: ddrThisYear 
+        };
+    }
+    
+    /**
+     * Récupère les données d'évolution réelle et théorique cumulées par mois, 
+     * toutes deux filtrées pour l'année en cours.
+     */
+    async function fetchEvolutionData(totalDDR) {
+        if (totalDDR === 0) {
+            // Retourne des données à 0% si aucun DDR n'est répertorié
+            return Array(12).fill(0).map((_, index) => ({ 
+                month: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'][index],
+                real: 0, 
+                theoretical: 0 
+            }));
+        }
+
+        const todayDate = new Date();
+        const currentYear = todayDate.getFullYear();
+        const currentMonth = todayDate.getMonth() + 1; 
+        const startOfYear = `${currentYear}-01-01`;
+
+        const evolutionData = [];
+        
+        for (let month = 1; month <= 12; month++) {
+            const monthLabel = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'][month - 1];
+            let realPercentage = null; 
+            let theoreticalPercentage = 0;
+            
+            // --- LOGIQUE DE PROGRESSION THÉORIQUE (Date planifiee) : DYNAMIQUE ET CUMULÉE ---
+            
+            // Borne à la fin du mois
+            const plannedEndDateFilter = new Date(currentYear, month, 0).toISOString().split('T')[0];
+
+            // Requête: Compter les DDR planifiés entre le 1er Janvier (startOfYear) et la fin du mois actuel (plannedEndDateFilter)
+            const { count: plannedUpToMonth, error: plannedError } = await supabase
+                .from('liste_ddr')
+                .select('*', { count: 'exact', head: true })
+                .lte('Date planifiee', plannedEndDateFilter)
+                .gte('Date planifiee', startOfYear); // Filtre pour l'année en cours
+
+            if (plannedError) {
+                console.error(`Erreur de récupération des données planifiées jusqu'au mois ${month}:`, plannedError);
+            } else {
+                // theoreticalPercentage sera 0 si plannedUpToMonth est 0 (car toutes les dates sont en 2026)
+                theoreticalPercentage = (plannedUpToMonth || 0) / totalDDR * 100;
+            }
+
+            // --- LOGIQUE DE PROGRESSION RÉELLE (Date de dernier controle) : DYNAMIQUE ET CUMULÉE ---
+
+            if (month <= currentMonth) {
+                // Pour les mois passés et le mois en cours
+                
+                let realEndDateFilter;
+                if (month === currentMonth) {
+                    // Borne au jour actuel (Oct 31) pour le mois en cours
+                    realEndDateFilter = todayDate.toISOString().split('T')[0];
+                } else {
+                    // Borne à la fin du mois pour les mois passés
+                    realEndDateFilter = plannedEndDateFilter; 
+                }
+
+                // Requête: Compter les DDR testés jusqu'à la date/fin du mois (et depuis le début de l'année)
+                const { count: testedUpToMonth, error: realError } = await supabase
+                    .from('liste_ddr')
+                    .select('*', { count: 'exact', head: true })
+                    .lte('Date de dernier controle', realEndDateFilter)
+                    .gte('Date de dernier controle', startOfYear); 
+
+                if (realError) {
+                    console.error(`Erreur de récupération des données réelles jusqu'au mois ${month}:`, realError);
+                } else {
+                    realPercentage = (testedUpToMonth || 0) / totalDDR * 100;
+                }
+            }
+            // else: realPercentage reste à 'null' pour les mois futurs
+
+            
+            evolutionData.push({ 
+                month: monthLabel,
+                real: realPercentage, // Sera null pour les mois futurs
+                theoretical: theoreticalPercentage // Calculé dynamiquement pour l'année en cours
+            });
+        }
+
+        return evolutionData;
+    }
+    
+    // ----------------------------------------------------------------------------------
+    // 3. Fonction Principale d'Initialisation
+    // ----------------------------------------------------------------------------------
+
+    async function initCharts() {
+        const conformiteData = await fetchConformiteData();
+        
+        // Définition des données à utiliser (réelles ou statiques de repli)
+        const conformite = conformiteData ? conformiteData.conformite : 86.7; 
+        const progression = conformiteData ? conformiteData.progression : 85.5; 
+        const totalPlanifie = conformiteData ? conformiteData.totalDDR : 3434; // DDR Répertorié
+        const ddrThisYear = conformiteData ? conformiteData.ddrThisYear : 2935; // DDR Testé (Année en cours)
+        
+        // Récupération des données d'évolution réelle et théorique DYNAMIQUES
+        const evolutionData = conformiteData 
+            ? await fetchEvolutionData(conformiteData.totalDDR) 
+            : null;
+
+        // --- LOGIQUE DE SECOURS (FALLBACK) EN CAS D'ÉCHEC DE fetchConformiteData ---
+        const fallbackTheoretical = Array(12).fill(0); 
+        const fallbackReal = [
+            5, 15, 28, 32, 80, 82, 82, 82, 82, 87, null, null
+        ];
+        
+        const evolutionDataFallback = fallbackReal.map((real, index) => ({
+            month: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'][index],
+            real: real, 
+            theoretical: fallbackTheoretical[index]
+        }));
+        // --------------------------------------------------------------------------------------
+        
+        // Rendu des graphiques
+        // Utilise les données dynamiques si disponibles, sinon les données de secours
+        renderCharts(conformite, progression, totalPlanifie, ddrThisYear, evolutionData || evolutionDataFallback);
+    }
+
+    // ----------------------------------------------------------------------------------
+    // 4. Fonction de Rendu (Séparation de la logique d'affichage)
+    // ----------------------------------------------------------------------------------
+
+    function renderCharts(conformite, progression, totalPlanifie, ddrThisYear, evolutionData) {
+        // COULEURS DU THÈME
+        const successColor = '#4caf50'; // Vert
+        const primaryColor = '#0078d7'; // Bleu
+        const greyColor = '#e0e0e0';
+        
+        // Mise à jour des valeurs textuelles
+        document.getElementById('conformite-value').textContent = conformite.toFixed(1).replace('.', ',') + ' %';
+        document.getElementById('totalPlanifie').textContent = totalPlanifie; // DDR Répertorié
+        document.getElementById('totalTestes').textContent = ddrThisYear; // DDR Testé
+
+        // 1. Graphique de Conformité (Barre verticale)
+        const conformiteCtx = document.getElementById('conformiteChart').getContext('2d');
+        if (Chart.getChart(conformiteCtx)) Chart.getChart(conformiteCtx).destroy();
+        new Chart(conformiteCtx, {
+            type: 'bar',
+            data: {
+                labels: [''],
+                datasets: [
+                    {
+                        label: 'Manquant',
+                        data: [100 - conformite],
+                        backgroundColor: greyColor, 
+                        borderRadius: 10,
+                    },
+                    {
+                        label: 'Conformité',
+                        data: [conformite],
+                        backgroundColor: successColor, 
+                        borderWidth: 2,
+                        borderRadius: 10,
+                    }
+                ]
+            },
+            options: {
+                responsive: true, 
+                maintainAspectRatio: false,
+                scales: { 
+                    x: { display: false, stacked: true }, 
+                    y: { display: false, stacked: true, max: 100, reverse: true } 
+                },
+                plugins: { legend: { display: false }, tooltip: { enabled: false } }
+            }
+        });
+
+
+        // 2. Graphique de Progression (Anneau - utilise maintenant la Progression calculée)
+        const progressionCtx = document.getElementById('progressionChart').getContext('2d');
+        if (Chart.getChart(progressionCtx)) Chart.getChart(progressionCtx).destroy();
+        new Chart(progressionCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Prévus cette année', 'Hors année'],
+                datasets: [{
+                    data: [progression, 100 - progression],
+                    backgroundColor: [successColor, greyColor], 
+                    borderWidth: 0,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '70%', 
+                plugins: { legend: { display: false }, tooltip: { enabled: false } }
+            },
+            plugins: [{
+                id: 'textCenter',
+                beforeDatasetsDraw(chart, args, pluginOptions) {
+                    const { ctx, data, chartArea: { top, width, height } } = chart;
+                    ctx.save();
+                    ctx.font = 'bolder 2em Arial'; 
+                    ctx.fillStyle = '#333'; 
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(data.datasets[0].data[0].toFixed(1).replace('.', ',') + ' %', width / 2, height / 2 + top);
+                    ctx.restore();
+                }
+            }]
+        });
+
+
+        // 3. Graphique d'Évolution (Ligne)
+        const evolutionCtx = document.getElementById('evolutionChart').getContext('2d');
+        if (Chart.getChart(evolutionCtx)) Chart.getChart(evolutionCtx).destroy();
+        new Chart(evolutionCtx, {
+            type: 'line',
+            data: {
+                labels: evolutionData.map(d => d.month),
+                datasets: [
+                    {
+                        label: 'Progression réelle',
+                        data: evolutionData.map(d => d.real), // Données réelles
+                        borderColor: successColor, backgroundColor: 'transparent',
+                        tension: 0.2, pointRadius: 3, borderWidth: 3
+                    },
+                    {
+                        label: 'Progression théorique',
+                        data: evolutionData.map(d => d.theoretical), // Données théoriques dynamiques (ou 0% si 2026)
+                        borderColor: primaryColor, backgroundColor: 'transparent',
+                        borderDash: [5, 5], tension: 0.2, pointRadius: 0, borderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top', labels: { usePointStyle: true, } },
+                    tooltip: {
+                        mode: 'index', intersect: false,
+                        callbacks: { 
+                            label: (context) => context.dataset.label + ': ' + (context.parsed.y !== null ? context.parsed.y.toFixed(1).replace('.', ',') + ' %' : 'N/A') 
+                        }
+                    }
+                },
+                scales: {
+                    y: { beginAtZero: true, max: 100, title: { display: false }, ticks: { callback: (value) => value + ' %' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    testConnexion()
+  </script>
 </body>
 </html>
