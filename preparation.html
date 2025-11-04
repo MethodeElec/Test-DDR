@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Préparation DDR</title>
+    <style>
+        /* VARIABLES COULEURS (Copiées de testDDR.html) */
+        :root {
+            --primary-color: #0078d7; 
+            --success-color: #4caf50; 
+            --card-bg: white;
+            --light-bg: #e0f7fa; 
+            --dark-bg: #bbdefb;  
+            --shadow-color: rgba(0,0,0,0.15);
+            --button-hover: #005bb5;
+            
+            /* COULEURS POUR LA PRÉPARATION (Violet) */
+            --preparation-color: #9c27b0; 
+            --preparation-hover: #8e24aa; 
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            /* Style du fond dégradé */
+            background: linear-gradient(to bottom right, var(--light-bg), var(--dark-bg)); 
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding-top: 20px;
+        }
+
+        /* Styles pour l'en-tête (pour maintenir l'aspect) */
+        header {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            display: flex;
+            flex-direction: column; 
+            align-items: flex-end; 
+            gap: 0; 
+        }
+
+        #userStatusContainer { 
+            font-size: 0.8em; 
+            color: #666;
+            margin-top: 2px;
+            display: flex; 
+            align-items: center;
+            gap: 5px;
+        }
+        
+        /* Style pour le bouton principal de retour */
+        #return-button-container {
+            position: absolute;
+            top: 50px;
+            left: 50px;
+        }
+        .dashboard-button {
+            /* Utilisation des styles du bouton "Préparation" de la page DDR */
+            padding: 20px 40px; 
+            font-size: 1.3em; 
+            background-color: var(--preparation-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
+            transition: background-color 0.3s;
+        }
+        .dashboard-button:hover {
+            background-color: var(--preparation-hover);
+        }
+
+        #page-title {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #004d40;
+            margin-bottom: 40px;
+            margin-top: 150px; /* Espace pour le bouton de retour */
+        }
+
+    </style>
+</head>
+<body>
+    
+    <div id="return-button-container">
+        <button onclick="window.location.href='testDDR.html'" class="dashboard-button">Retour</button>
+    </div>
+    
+    <header>
+        <div id="connection-line"></div>
+        <div id="userStatusContainer"></div>
+    </header>
+
+    <h1 id="page-title">Page de Préparation</h1>
+    
+    </body>
+</html>
