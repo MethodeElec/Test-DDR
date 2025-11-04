@@ -34,7 +34,7 @@
       padding-top: 20px;
     }
 
-    /* HEADER CONNEXION SUPABASE */
+    /* HEADER CONNEXION SUPABASE - MODIFIÉ POUR L'ALIGNEMENT VERTICAL */
     header {
       position: absolute;
       top: 15px;
@@ -44,27 +44,41 @@
       align-items: flex-end; /* Aligner à droite */
       gap: 0; 
     }
-    #connection-line { /* Nouvelle ligne pour maintenir l'alignement horizontal de la première ligne */
+    #connection-line { /* Ligne pour le statut de la DB */
         display: flex;
         align-items: center;
         gap: normal; 
         margin-bottom: 2px;
     }
-    #dbLabel {
-      font-size: 0.8em; 
-      margin-right: 5px; 
-      color: #666;
-    }
-    #statusIcon {
-      font-size: 0.7em; 
-      font-weight: bold; 
-      line-height: 1.2; 
-    }
-    #userStatusLine { /* Nouvelle ligne pour le statut de l'utilisateur */
+    /* #dbLabel et #statusIcon ont été supprimés du code */
+
+    #userStatusContainer { /* Conteneur pour le statut de l'utilisateur ou le bouton */
         font-size: 0.8em; 
         color: #666;
-        display: none; 
+        display: none; /* Caché par défaut, affiché par JS */
+        margin-top: 2px;
+        /* Ajout de style pour mieux séparer le nom du bouton */
+        display: flex; 
+        align-items: center;
+        gap: 5px; /* Espacement entre le nom et le bouton */
     }
+    
+    /* Style pour le bouton de déconnexion (couleur bleue demandée précédemment) */
+    .logout-button {
+        background: none;
+        border: none;
+        color: var(--primary-color); /* BLEU */
+        text-decoration: underline;
+        cursor: pointer;
+        padding: 0;
+        font-size: 1em; 
+        font-weight: bold;
+        transition: color 0.2s;
+    }
+    .logout-button:hover {
+        color: var(--button-hover); /* BLEU FONCÉ AU SURVOL */
+    }
+
     #status {
       display: none; 
     }
@@ -188,15 +202,15 @@
     
   <header>
     <div id="connection-line">
-        <span id="dbLabel">Connexion Base de Donnée</span>
-        <span id="statusIcon">⏳</span>
-    </div>
-    <span id="userStatusLine"></span>
+        </div>
+    <div id="userStatusContainer"></div>
   </header>
   <div id="status" style="z-index: 1000; position: fixed; top: 0;">Vérification de la connexion...</div>
 
   <h1 id="dashboard-title">Test DDR</h1>
-  <p id="current-date"></p> <div id="top-stats">
+  <p id="current-date"></p> 
+  
+  <div id="top-stats">
     
     <div id="conformite-block">
         <div id="conformite-value">--,- %</div>
@@ -247,63 +261,125 @@
     // ----------------------------------------------------------------------------------
     import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
     
+    // ATTENTION: Ces clés sont publiques mais doivent rester confidentielles en dehors de l'application
     const SUPABASE_URL = 'https://ejirdcqcmmeybgitonmw.supabase.co'
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqaXJkY3FjbW1leWJnaXRvbm13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1OTY2MjYsImV4cCI6MjA3NzE3MjYyNn0.4E93ufwJ-RIjV9qT0I4t3GiI9NIzVzN_ktwDPswT7ic'
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqaXJkY3FjbW1leWJnaXRvbm53Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1OTY2MjYsImV4cCI6MjA3NzE3MjYyNn0.4E93ufwJ-RIjV9qT0I4t3GiI9NIzVzN_ktwDPswT7ic'
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     
     /**
-     * Tente une connexion minimale à Supabase.
+     * Gère la déconnexion de l'utilisateur et la redirection vers login.html.
+     */
+    async function logOut() {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+            console.error('Erreur de déconnexion:', error);
+            alert('Erreur lors de la déconnexion. Consultez la console.');
+        } else {
+            // Redirection vers la page de connexion
+            window.location.href = 'login.html'; 
+        }
+    }
+
+    /**
+     * Tente une connexion minimale à Supabase, vérifie la session utilisateur et affiche le statut.
      */
     async function testConnexion() {
       // Afficher la date avant de tenter la connexion
       displayCurrentDate(); 
       
       const status = document.getElementById('status')
-      const icon = document.getElementById('statusIcon')
-      const label = document.getElementById('dbLabel')
-      const userStatus = document.getElementById('userStatusLine'); // Récupération de l'élément
-
+      // const icon = document.getElementById('statusIcon') // Supprimé
+      // const label = document.getElementById('dbLabel') // Supprimé
+      // Récupération du nouveau conteneur de statut utilisateur
+      const userStatusContainer = document.getElementById('userStatusContainer'); 
+      
+      // Nettoyer le contenu précédent du conteneur
+      userStatusContainer.innerHTML = '';
+      
       try {
-        const { error } = await supabase.from('fake_table').select('*').limit(1)
+        // --- 1. Test de la connexion à la DB ---
+        const { error: dbError } = await supabase.from('fake_table').select('*').limit(1)
 
-        if (!error || (error && error.message.includes('schema cache'))) {
-          status.textContent = '' 
-          status.style.backgroundColor = 'transparent'
-          status.style.boxShadow = 'none' 
-          
-          // Statut DB: Succès (Vert)
-          icon.textContent = '✓' 
-          icon.style.color = 'green'
-          label.style.color = 'green'
-          
-          // Statut Utilisateur: Déconnecté (Rouge) - pour simuler un bouton
-          userStatus.textContent = 'Nom Prénom : Déconnecté';
-          userStatus.style.display = 'block';
-          userStatus.style.color = 'red';
-          
-          await initCharts(); 
+        if (dbError && !dbError.message.includes('schema cache')) {
+          throw dbError // Erreur réelle de DB
+        }
+
+        // Statut DB: Succès (Vert)
+        status.textContent = '' 
+        status.style.backgroundColor = 'transparent'
+        status.style.boxShadow = 'none' 
+        // Lignes de manipulation de l'icône et du label supprimées
+        
+        // --- 2. Vérification de l'utilisateur connecté et récupération du profil ---
+        const { data: { session } } = await supabase.auth.getSession(); 
+        
+        if (session) {
+            const user = session.user;
+            let displayName = '';
+            
+            // Récupération du Nom et Prénom dans la table 'profiles'
+            const { data: profileData, error: profileError } = await supabase
+                .from('profiles')
+                .select('first_name, last_name')
+                .eq('id', user.id)
+                .single();
+
+            if (profileError || !profileData || !profileData.first_name || !profileData.last_name) {
+                // Fallback si le profil n'est pas trouvé ou incomplet
+                console.warn("Profil utilisateur incomplet ou non trouvé. Utilisation de l'email.", profileError);
+                // Utiliser l'email comme nom d'affichage
+                displayName = user.email || 'Utilisateur inconnu';
+            } else {
+                // Affichage du Nom et Prénom
+                displayName = profileData.first_name + ' ' + profileData.last_name;
+            }
+            
+            // Couleur verte pour le nom (succès de connexion)
+            userStatusContainer.style.color = 'green';
+
+            // Si connecté, afficher le nom + le bouton de déconnexion (MODIFIÉ: Plus de "Connecté:", plus de parenthèses)
+            const nameElement = document.createElement('strong');
+            nameElement.textContent = displayName;
+            
+            const buttonElement = document.createElement('button');
+            buttonElement.textContent = 'Se déconnecter';
+            buttonElement.className = 'logout-button';
+            buttonElement.onclick = window.logOut;
+            
+            userStatusContainer.appendChild(nameElement);
+            userStatusContainer.appendChild(buttonElement);
 
         } else {
-          throw error
+            // Si déconnecté, afficher UNIQUEMENT le bouton "Se connecter"
+            userStatusContainer.style.color = 'red';
+            const buttonElement = document.createElement('button');
+            buttonElement.textContent = 'Se connecter'; // Texte simplifié
+            buttonElement.className = 'logout-button'; 
+            buttonElement.onclick = () => window.location.href = 'login.html';
+            userStatusContainer.appendChild(buttonElement);
         }
+
+        // Affichage du conteneur utilisateur
+        userStatusContainer.style.display = 'flex'; // Utiliser 'flex' pour l'alignement
+        
+        await initCharts(); 
+
       } catch (err) {
         console.error(err)
         status.textContent = '❌ Erreur : ' + err.message
         status.style.backgroundColor = '#ffdddd'
         status.style.boxShadow = '0 2px 5px rgba(0,0,0,0.1)'
         
-        // Statut DB: Échec (Rouge)
-        icon.textContent = '✕' 
-        icon.style.color = 'red'
-        label.style.color = 'red'
+        // Statut DB: Échec (Rouge) - Lignes de manipulation de l'icône et du label supprimées
         
-        // Statut Utilisateur: Affiché en cas d'erreur DB également (pour information)
-        userStatus.textContent = 'Nom Prénom : Déconnecté';
-        userStatus.style.display = 'block';
-        userStatus.style.color = 'red';
+        // Statut Utilisateur: Bouton de connexion/déconnexion en cas d'erreur
+        userStatusContainer.style.color = 'red';
+        // Afficher UNIQUEMENT le bouton "Se connecter"
+        userStatusContainer.innerHTML = `<button class="logout-button" onclick="window.location.href='login.html'">Se connecter</button>`;
+        userStatusContainer.style.display = 'flex';
         
-        // --- LOGIQUE DE SECOURS (FALLBACK) EN CAS D'ÉCHEC DE CONNEXION ---
+        // --- LOGIQUE DE SECOURS (FALLBACK) ---
         const fallbackTheoretical = Array(12).fill(0); 
         const fallbackReal = [
             5, 15, 28, 32, 80, 82, 82, 82, 82, 87, null, null 
@@ -314,15 +390,17 @@
             real: real, 
             theoretical: fallbackTheoretical[index]
         }));
-        // ---------------------------------------------------------------------------
 
         // Utilise les valeurs de secours si la connexion échoue
         renderCharts(86.7, 85.5, 3434, 2935, evolutionDataFallback);
       }
     }
+    
+    // Rendre la fonction `logOut` accessible globalement pour le `onclick`
+    window.logOut = logOut; 
 
     // ----------------------------------------------------------------------------------
-    // 2. Fonctions de Récupération des Données (Conformité, Progression & Évolution)
+    // 2. Fonctions de Récupération des Données (Non modifiées)
     // ----------------------------------------------------------------------------------
 
     /**
@@ -404,17 +482,16 @@
             // Borne à la fin du mois
             const plannedEndDateFilter = new Date(currentYear, month, 0).toISOString().split('T')[0];
 
-            // Requête: Compter les DDR planifiés entre le 1er Janvier (startOfYear) et la fin du mois actuel (plannedEndDateFilter)
+            // Requête: Compter les DDR planifiés
             const { count: plannedUpToMonth, error: plannedError } = await supabase
                 .from('liste_ddr')
                 .select('*', { count: 'exact', head: true })
                 .lte('Date planifiee', plannedEndDateFilter)
-                .gte('Date planifiee', startOfYear); // Filtre pour l'année en cours
+                .gte('Date planifiee', startOfYear); 
 
             if (plannedError) {
                 console.error(`Erreur de récupération des données planifiées jusqu'au mois ${month}:`, plannedError);
             } else {
-                // theoreticalPercentage sera 0 si plannedUpToMonth est 0 (car toutes les dates sont en 2026)
                 theoreticalPercentage = (plannedUpToMonth || 0) / totalDDR * 100;
             }
 
@@ -425,14 +502,14 @@
                 
                 let realEndDateFilter;
                 if (month === currentMonth) {
-                    // Borne au jour actuel (Oct 31) pour le mois en cours
+                    // Borne au jour actuel (pour le mois en cours)
                     realEndDateFilter = todayDate.toISOString().split('T')[0];
                 } else {
                     // Borne à la fin du mois pour les mois passés
                     realEndDateFilter = plannedEndDateFilter; 
                 }
 
-                // Requête: Compter les DDR testés jusqu'à la date/fin du mois (et depuis le début de l'année)
+                // Requête: Compter les DDR testés
                 const { count: testedUpToMonth, error: realError } = await supabase
                     .from('liste_ddr')
                     .select('*', { count: 'exact', head: true })
@@ -459,7 +536,7 @@
     }
     
     // ----------------------------------------------------------------------------------
-    // 3. Fonction Principale d'Initialisation
+    // 3. Fonction Principale d'Initialisation (Non modifiée)
     // ----------------------------------------------------------------------------------
 
     async function initCharts() {
@@ -495,7 +572,7 @@
     }
 
     // ----------------------------------------------------------------------------------
-    // 4. Fonction de Rendu (Séparation de la logique d'affichage)
+    // 4. Fonction de Rendu (Séparation de la logique d'affichage - Non modifiée)
     // ----------------------------------------------------------------------------------
 
     function renderCharts(conformite, progression, totalPlanifie, ddrThisYear, evolutionData) {
