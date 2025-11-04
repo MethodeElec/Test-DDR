@@ -351,10 +351,10 @@
             userStatusContainer.appendChild(buttonElement);
 
         } else {
-            // Si déconnecté, afficher UNIQUEMENT le bouton "Se connecter"
+            // Si déconnecté, afficher UNIQUEMENT le bouton "Se déconnecter"
             userStatusContainer.style.color = 'red';
             const buttonElement = document.createElement('button');
-            buttonElement.textContent = 'Se connecter'; // Texte simplifié
+            buttonElement.textContent = 'Se déconnecter'; // Texte simplifié
             buttonElement.className = 'logout-button'; 
             buttonElement.onclick = () => window.location.href = 'login.html';
             userStatusContainer.appendChild(buttonElement);
@@ -375,8 +375,8 @@
         
         // Statut Utilisateur: Bouton de connexion/déconnexion en cas d'erreur
         userStatusContainer.style.color = 'red';
-        // Afficher UNIQUEMENT le bouton "Se connecter"
-        userStatusContainer.innerHTML = `<button class="logout-button" onclick="window.location.href='login.html'">Se connecter</button>`;
+        // Afficher UNIQUEMENT le bouton "Se déconnecter"
+        userStatusContainer.innerHTML = `<button class="logout-button" onclick="window.location.href='login.html'">Se déconnecter</button>`;
         userStatusContainer.style.display = 'flex';
         
         // --- LOGIQUE DE SECOURS (FALLBACK) ---
