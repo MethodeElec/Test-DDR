@@ -2,9 +2,14 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Préparation DDR</title>
+    <title>Préparation DDR - Plan Interactif</title>
+    
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/maphilight/1.4.2/jquery.maphilight.min.js"></script>
+    <script type="module" src="https://esm.sh/@supabase/supabase-js@2"></script>
+
     <style>
-        /* VARIABLES COULEURS (Copiées de testDDR.html) */
+        /* VARIABLES COULEURS */
         :root {
             --primary-color: #0078d7; 
             --success-color: #4caf50; 
@@ -13,77 +18,88 @@
             --dark-bg: #bbdefb;  
             --shadow-color: rgba(0,0,0,0.15);
             --button-hover: #005bb5;
-            
-            /* COULEURS POUR LA PRÉPARATION (Violet) */
             --preparation-color: #9c27b0; 
             --preparation-hover: #8e24aa; 
+            --modal-border-color: #CC0000; /* Rouge Firmenich */
         }
 
         body {
             font-family: Arial, sans-serif;
-            /* Style du fond dégradé */
             background: linear-gradient(to bottom right, var(--light-bg), var(--dark-bg)); 
             color: #333;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
+            display: block; 
             min-height: 100vh;
             margin: 0;
             padding-top: 20px;
         }
 
-        /* Styles pour l'en-tête (pour maintenir l'aspect) */
-        header {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            display: flex;
-            flex-direction: column; 
-            align-items: flex-end; 
-            gap: 0; 
-        }
-
-        #userStatusContainer { 
-            font-size: 0.8em; 
-            color: #666;
-            margin-top: 2px;
-            display: flex; 
-            align-items: center;
-            gap: 5px;
-        }
-        
-        /* Style pour le bouton principal de retour */
-        #return-button-container {
-            position: absolute;
-            top: 50px;
-            left: 50px;
-        }
+        /* Styles de positionnement et d'en-tête */
+        header { position: absolute; top: 15px; right: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 0; }
+        #userStatusContainer { font-size: 0.8em; color: #666; margin-top: 2px; display: flex; align-items: center; gap: 5px; }
+        /* Position du bouton de retour */
+        #return-button-container { position: absolute; top: 10px; left: 10px; } 
         .dashboard-button {
-            /* Utilisation des styles du bouton "Préparation" de la page DDR */
-            padding: 20px 40px; 
-            font-size: 1.3em; 
-            background-color: var(--preparation-color);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
+            padding: 20px 40px; font-size: 1.3em; background-color: var(--preparation-color);
+            color: white; border: none; border-radius: 5px; cursor: pointer;
+            font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
             transition: background-color 0.3s;
         }
-        .dashboard-button:hover {
-            background-color: var(--preparation-hover);
+        .dashboard-button:hover { background-color: var(--preparation-hover); }
+
+        /* --- CSS pour la Carte et la Modale --- */
+        #map-and-modal-container { 
+            display: flex; 
+            justify-content: center; 
+            max-width: 95%; 
+            margin: 0 auto 50px auto; 
+            align-items: flex-start;
+            gap: 40px; 
+            /* Marge pour remonter le plan */
+            padding-top: 0px; 
         }
 
-        #page-title {
-            font-size: 2.5em;
-            font-weight: bold;
-            color: #004d40;
-            margin-bottom: 40px;
-            margin-top: 150px; /* Espace pour le bouton de retour */
+        /* Conteneur principal pour la carte et les titres */
+        #map-container {
+            position: relative; 
+            display: inline-block;
         }
 
+        /* Styles des titres de bâtiment */
+        .batiment-title {
+            position: absolute;
+            color: black;
+            font-weight: 900; 
+            font-size: 16px; 
+            pointer-events: none; 
+            transform: translate(-50%, -50%); 
+        }
+        
+        #info-modale {
+            width: 300px; min-height: 200px; padding: 20px;
+            border: 2px solid var(--modal-border-color); background-color: var(--card-bg);
+            box-shadow: 0 4px 12px var(--shadow-color); border-radius: 8px;
+            display: none; position: sticky; top: 20px;
+        }
+        #info-modale h3 { margin-top: 0; color: var(--modal-border-color); }
+        .modal-button {
+            background: var(--modal-border-color); color: white; border: none;
+            padding: 10px 15px; cursor: pointer; border-radius: 5px; transition: background-color 0.3s;
+        }
+        .modal-button:hover { background-color: #a00000; }
+        
+        /* NOUVEAU STYLE pour masquer la légende */
+        #white-cover-legend {
+            position: absolute;
+            top: 50px; 
+            left: 0;
+            /* Ces dimensions sont basées sur une estimation de la taille que prend la légende */
+            width: 450px; /* Largeur de la zone à couvrir */
+            height: 500px; /* Hauteur de la zone à couvrir */
+            background-color: white; /* La couleur blanche demandée */
+            /* Ajout d'une bordure pour que cela ressemble à un 'cadre' si l'image derrière n'est pas blanche, mais ce n'est pas nécessaire si l'arrière-plan est déjà couvert. */
+            z-index: 10; /* Assure que le cache est au-dessus du plan */
+        }
+        
     </style>
 </head>
 <body>
@@ -97,7 +113,270 @@
         <div id="userStatusContainer"></div>
     </header>
 
-    <h1 id="page-title">Page de Préparation</h1>
+    <div id="map-and-modal-container">
+        
+        <div id="map-container">
+            <div id="white-cover-legend"></div>
+            
+            <img src="plan_usine.png" usemap="#image-map" class="map" alt="Plan du site FIRMENICH S.A. La Plaine">
+
+            <map name="image-map">
+                <area target="" alt="104" title="104" href="" coords="1198,538,20" shape="circle">
+                <area target="" alt="105" title="105" href="" coords="1158,525,18" shape="circle">
+                <area target="" alt="106" title="106" href="" coords="1200,492,19" shape="circle">
+                <area target="" alt="107" title="107" href="" coords="1186,440,20" shape="circle">
+                <area target="" alt="115" title="115" href="" coords="1066,507,21" shape="circle">
+                <area target="" alt="116" title="116" href="" coords="1114,551,18" shape="circle">
+                <area target="" alt="117" title="117" href="" coords="1111,598,16" shape="circle">
+                <area target="" alt="118" title="118" href="" coords="1071,599,18" shape="circle">
+                <area target="" alt="120" title="120" href="" coords="1037,460,22" shape="circle">
+                
+                <area target="" alt="220" title="220" href="" coords="1014,656,38" shape="circle">
+                <area target="" alt="221" title="221" href="" coords="1007,586,22" shape="circle">
+                <area target="" alt="228" title="228" href="" coords="989,546,19" shape="circle">
+                <area target="" alt="303" title="303" href="" coords="889,522,17" shape="circle">
+                <area target="" alt="329" title="329" href="" coords="817,622,19" shape="circle">
+                <area target="" alt="331" title="331" href="" coords="906,712,26" shape="circle">
+                <area target="" alt="332" title="332" href="" coords="854,653,26" shape="circle">
+                <area target="" alt="333" title="333" href="" coords="844,729,29" shape="circle">
+                <area target="" alt="335" title="335" href="" coords="908,652,21" shape="circle">
+                <area target="" alt="336" title="336" href="" coords="885,612,21" shape="circle">
+                
+                <area target="" alt="338" title="338" href="" coords="830,520,30" shape="circle">
+                <area target="" alt="343" title="343" href="" coords="958,697,24" shape="circle">
+                <area target="" alt="440" title="440" href="" coords="730,664,47" shape="circle">
+                <area target="" alt="443" title="443" href="" coords="759,593,28" shape="circle">
+                <area target="" alt="551" title="551" href="" coords="737,789,30" shape="circle">
+                <area target="" alt="553" title="553" href="" coords="611,761,28" shape="circle">
+                <area target="" alt="554" title="554" href="" coords="669,809,21" shape="circle">
+                <area target="" alt="620" title="620" href="" coords="493,829,21" shape="circle">
+                <area target="" alt="661" title="661" href="" coords="533,733,29" shape="circle">
+                <area target="" alt="669" title="669" href="" coords="559,788,18" shape="circle">
+                
+                <area target="" alt="772" title="772" href="" coords="1021,379,40" shape="circle">
+                <area target="" alt="775" title="775" href="" coords="816,397,24" shape="circle">
+                <area target="" alt="776" title="776" href="" coords="777,350,26" shape="circle">
+                <area target="" alt="851" title="851" href="" coords="676,534,26" shape="circle">
+                <area target="" alt="852" title="852" href="" coords="681,489,17" shape="circle">
+                <area target="" alt="853" title="853" href="" coords="661,461,18" shape="circle">
+                <area target="" alt="811" title="811" href="" coords="367,723,25" shape="circle">
+                <area target="" alt="881" title="881" href="" coords="713,397,24" shape="circle">
+                <area target="" alt="885" title="885" href="" coords="567,292,61" shape="circle">
+                <area target="" alt="972" title="972" href="" coords="1107,185,24" shape="circle">
+                
+                <area target="" alt="990" title="990" href="" coords="1168,286,21" shape="circle">
+                <area target="" alt="991" title="991" href="" coords="1193,320,20" shape="circle">
+                <area target="" alt="992" title="992" href="" coords="1173,393,27" shape="circle">
+                <area target="" alt="993" title="993" href="" coords="1131,263,18" shape="circle">
+                <area target="" alt="998" title="998" href="" coords="1277,440,33" shape="circle">
+            </map>
+        </div>
     
-    </body>
+        <div id="info-modale">
+            <h3>Détails du Bâtiment <span id="batiment-id"></span></h3>
+            <p id="batiment-titre">Cliquez sur un bâtiment du plan pour afficher ses informations.</p>
+            <p id="batiment-details"></p>
+            <button onclick="$('#info-modale').fadeOut(200)" class="modal-button" style="margin-top: 15px;">Fermer</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Importation du client Supabase
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+        
+        // --- Configuration Supabase ---
+        const SUPABASE_URL = 'https://ejirdcqcmmeybgitonmw.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqaXJkY3FjbW1leWJnaXRvbm13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1OTY2MjYsImV4cCI6MjA3NzE3MjYyNn0.4E93ufwJ-RIjV9qT0I4t3GiI9NIzVzN_ktwDPswT7ic'; 
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // ------------------------------
+
+        // OPTIONS DE SURBRILLANCE
+        
+        // ÉTAT 1 (ROUGE) : Si TOUS les statuts sont "A lancer"
+        const redHighlightOptions = {
+            alwaysOn: true,
+            fillColor: 'CC0000', // Rouge Firmenich
+            fillOpacity: 0.4,    // Opacité de l'état normal
+            stroke: false
+        };
+        
+        // ÉTAT 2 (BLEU CIEL) : L'état par défaut si la condition ROUGE n'est pas remplie
+        const permanentHighlightOptions = {
+            alwaysOn: true,
+            fillColor: 'B3E5FC', // Bleu clair
+            fillOpacity: 0.4,    // Opacité de l'état normal (plus claire)
+            stroke: false
+        };
+        
+        // ÉTAT 3 : L'état de survol simple
+        const hoverHighlightOptions = {
+            fillColor: '0078d7',    // Bleu fort au survol
+            fillOpacity: 0.7,       
+            stroke: true,
+            strokeColor: 'CC0000',  
+            strokeWidth: 3,         
+            fade: true
+        };
+        
+        // ÉTAT 4 : L'état "enfoncé" (plus lumineux, persiste)
+        const selectedHighlightOptions = {
+            alwaysOn: true,
+            fillColor: '0078d7',    // Bleu opaque
+            fillOpacity: 1.0,       // Complètement opaque
+            stroke: true,
+            strokeColor: 'FFFFFF',  // Bordure blanche pour contraste
+            strokeWidth: 3,
+            fade: hoverHighlightOptions.fade
+        };
+
+
+        /**
+         * Récupère les IDs du bâtiment, puis vérifie les statuts DDR associés et applique la coloration.
+         * @param {jQuery} $area - L'objet jQuery de l'aire cliquable.
+         * @param {string} buildingNumber - Le numéro du bâtiment (title de la zone).
+         */
+        async function checkBuildingStatusAndColor($area, buildingNumber) {
+            
+            // 1. Récupérer l'ID (ou les IDs) de la table 'ea_ddr' (Parent)
+            const { data: eaDDRData, error: eaDDRError } = await supabase
+                .from('ea_ddr')
+                .select('id')
+                .eq('Bâtiment', buildingNumber); 
+
+            // Si erreur ou bâtiment non trouvé dans ea_ddr, appliquer la couleur bleue par défaut
+            if (eaDDRError || eaDDRData.length === 0) {
+                if (eaDDRError) console.error('Erreur Supabase (ea_ddr):', eaDDRError);
+                $area.data('maphilight', permanentHighlightOptions).trigger('alwaysOn.maphilight');
+                return;
+            }
+
+            const eaDDRIds = eaDDRData.map(item => item.id);
+
+            // 2. Récupérer les Statuts pour ces IDs dans la table 'liste_ddr' (Enfant)
+            const { data: listeDDRData, error: listeDDRError } = await supabase
+                .from('liste_ddr')
+                .select('Status')
+                .in('ea_ddr_id', eaDDRIds);
+
+            if (listeDDRError) {
+                console.error('Erreur Supabase (liste_ddr):', listeDDRError);
+                $area.data('maphilight', permanentHighlightOptions).trigger('alwaysOn.maphilight');
+                return;
+            }
+
+            // 3. Appliquer la Logique de Coloration
+            
+            // La règle est : TOUS les statuts doivent être "A lancer" et il doit y avoir au moins 1 DDR
+            const allAreToLaunch = listeDDRData.length > 0 && listeDDRData.every(item => item.Status === 'A lancer');
+
+            if (allAreToLaunch) {
+                // Condition remplie : TOUT est "A lancer" -> Appliquer le ROUGE
+                $area.data('maphilight', redHighlightOptions).trigger('alwaysOn.maphilight');
+            } else {
+                // Condition non remplie : un statut est différent ou la liste est vide -> Appliquer le BLEU CIEL
+                $area.data('maphilight', permanentHighlightOptions).trigger('alwaysOn.maphilight');
+            }
+        }
+
+
+        $(document).ready(function() {
+            
+            // 1. Initialisation de MapHilight pour l'effet de survol (définit les couleurs par défaut du hover)
+            $('.map').maphilight(hoverHighlightOptions);
+
+            // 2. Affichage des titres et initialisation de l'état permanent (couleur conditionnelle)
+            $('area[shape="circle"]').each(function() {
+                const $area = $(this);
+                const title = $area.attr('title');
+                
+                // Récupération des coordonnées (centerX, centerY, radius)
+                const coords = $area.attr('coords').split(',').map(Number);
+                const centerX = coords[0];
+                const centerY = coords[1];
+                
+                // Création de l'étiquette de titre
+                const $titleLabel = $('<div>')
+                    .addClass('batiment-title')
+                    .text(title)
+                    .css({
+                        'top': centerY + 'px',
+                        'left': centerX + 'px'
+                    });
+                
+                // Ajout de l'étiquette dans le conteneur de la carte
+                $('#map-container').append($titleLabel);
+
+                // --- NOUVEAU: Appel de la fonction asynchrone pour la coloration initiale ---
+                checkBuildingStatusAndColor($area, title);
+                // ---------------------------------------------------------------------------
+            });
+
+
+            // 3. Gestion du SURVOL (pour le survol simple)
+            $('area')
+                .on('mouseenter', function() {
+                    const $this = $(this);
+                    // Si c'est déjà l'élément sélectionné, on ne fait rien.
+                    if ($this.hasClass('area-selected')) {
+                         return; 
+                    }
+                    // Sinon, on enlève l'état permanent pour laisser l'effet de survol standard s'appliquer.
+                    $this.data('maphilight', { alwaysOn: false }).trigger('alwaysOn.maphilight');
+                })
+                .on('mouseleave', function() {
+                    const $this = $(this);
+                    // Si c'est l'élément sélectionné, on ne fait rien.
+                    if ($this.hasClass('area-selected')) { 
+                        return; 
+                    }
+                    // --- MODIFIÉ: Rétablissement de l'état permanent (Rouge ou Bleu) ---
+                    const buildingNumber = $this.attr('title');
+                    checkBuildingStatusAndColor($this, buildingNumber);
+                    // -------------------------------------------------------------------
+                });
+            
+            // 4. Gestion du Clic (Toggle/Multi-sélection)
+            $('area').on('click', async function(e) {
+                e.preventDefault(); 
+                const $this = $(this);
+                const buildingNumber = $this.attr('title');
+
+                if ($this.hasClass('area-selected')) {
+                    // CAS 1 : La zone est déjà sélectionnée -> On la désélectionne (Toggle OFF)
+                    $this.removeClass('area-selected');
+                    
+                    // --- MODIFIÉ: On lui réapplique l'état permanent (Rouge ou Bleu) ---
+                    await checkBuildingStatusAndColor($this, buildingNumber);
+                    
+                    // Masquer la modale
+                    $('#info-modale').fadeOut(200);
+
+                } else {
+                    // CAS 2 : La zone n'est PAS sélectionnée -> On la sélectionne (Toggle ON)
+                    
+                    // Appliquer l'état "enfoncé" (bleu opaque)
+                    $this.addClass('area-selected');
+                    $this.data('maphilight', selectedHighlightOptions).trigger('alwaysOn.maphilight');
+
+                    // --- NOUVEAU: Affichage de la Modale (Décommenté et adapté) ---
+                    const modaleTitle = `Statut DDR pour le Bâtiment ${buildingNumber}`;
+                    const statusDetails = `Détails sur les DDR du bâtiment ${buildingNumber} seront chargés ici après un autre appel Supabase...`;
+                    
+                    $('#batiment-id').text(buildingNumber);
+                    $('#batiment-titre').text(modaleTitle);
+                    $('#batiment-details').html(statusDetails);
+                    
+                    // Assurer que le style pour le cas de base soit masqué
+                    if ($('#info-modale p:first').text().includes('Cliquez sur un bâtiment')) {
+                        $('#info-modale p:first').text('');
+                    }
+
+                    $('#info-modale').fadeIn(200);
+                    // -----------------------------------------------------------
+                }
+            });
+        });
+    </script>
+
+</body>
 </html>
