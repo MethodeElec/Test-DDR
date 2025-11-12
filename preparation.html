@@ -6,6 +6,7 @@
     
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/maphilight/1.4.2/jquery.maphilight.min.js"></script>
+    <script type="module" src="https://esm.sh/@supabase/supabase-js@2"></script>
 
     <style>
         /* VARIABLES COULEURS */
@@ -179,41 +180,111 @@
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        // Importation du client Supabase
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+        
+        // --- Configuration Supabase ---
+        const SUPABASE_URL = 'https://ejirdcqcmmeybgitonmw.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqaXJkY3FjbW1leWJnaXRvbm13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1OTY2MjYsImV4cCI6MjA3NzE3MjYyNn0.4E93ufwJ-RIjV9qT0I4t3GiI9NIzVzN_ktwDPswT7ic'; 
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // ------------------------------
+
+        // OPTIONS DE SURBRILLANCE
+        
+        // ÉTAT 1 (ROUGE) : Si TOUS les statuts sont "A lancer"
+        const redHighlightOptions = {
+            alwaysOn: true,
+            fillColor: 'CC0000', // Rouge Firmenich
+            fillOpacity: 0.4,    // Opacité de l'état normal
+            stroke: false
+        };
+        
+        // ÉTAT 2 (BLEU CIEL) : L'état par défaut si la condition ROUGE n'est pas remplie
+        const permanentHighlightOptions = {
+            alwaysOn: true,
+            fillColor: 'B3E5FC', // Bleu clair
+            fillOpacity: 0.4,    // Opacité de l'état normal (plus claire)
+            stroke: false
+        };
+        
+        // ÉTAT 3 : L'état de survol simple
+        const hoverHighlightOptions = {
+            fillColor: '0078d7',    // Bleu fort au survol
+            fillOpacity: 0.7,       
+            stroke: true,
+            strokeColor: 'CC0000',  
+            strokeWidth: 3,         
+            fade: true
+        };
+        
+        // ÉTAT 4 : L'état "enfoncé" (plus lumineux, persiste)
+        const selectedHighlightOptions = {
+            alwaysOn: true,
+            fillColor: '0078d7',    // Bleu opaque
+            fillOpacity: 1.0,       // Complètement opaque
+            stroke: true,
+            strokeColor: 'FFFFFF',  // Bordure blanche pour contraste
+            strokeWidth: 3,
+            fade: hoverHighlightOptions.fade
+        };
+
+
+        /**
+         * Récupère les IDs du bâtiment, puis vérifie les statuts DDR associés et applique la coloration.
+         * @param {jQuery} $area - L'objet jQuery de l'aire cliquable.
+         * @param {string} buildingNumber - Le numéro du bâtiment (title de la zone).
+         */
+        async function checkBuildingStatusAndColor($area, buildingNumber) {
+            
+            // 1. Récupérer l'ID (ou les IDs) de la table 'ea_ddr' (Parent)
+            const { data: eaDDRData, error: eaDDRError } = await supabase
+                .from('ea_ddr')
+                .select('id')
+                .eq('Bâtiment', buildingNumber); 
+
+            // Si erreur ou bâtiment non trouvé dans ea_ddr, appliquer la couleur bleue par défaut
+            if (eaDDRError || eaDDRData.length === 0) {
+                if (eaDDRError) console.error('Erreur Supabase (ea_ddr):', eaDDRError);
+                $area.data('maphilight', permanentHighlightOptions).trigger('alwaysOn.maphilight');
+                return;
+            }
+
+            const eaDDRIds = eaDDRData.map(item => item.id);
+
+            // 2. Récupérer les Statuts pour ces IDs dans la table 'liste_ddr' (Enfant)
+            const { data: listeDDRData, error: listeDDRError } = await supabase
+                .from('liste_ddr')
+                .select('Status')
+                .in('ea_ddr_id', eaDDRIds);
+
+            if (listeDDRError) {
+                console.error('Erreur Supabase (liste_ddr):', listeDDRError);
+                $area.data('maphilight', permanentHighlightOptions).trigger('alwaysOn.maphilight');
+                return;
+            }
+
+            // 3. Appliquer la Logique de Coloration
+            
+            // La règle est : TOUS les statuts doivent être "A lancer" et il doit y avoir au moins 1 DDR
+            const allAreToLaunch = listeDDRData.length > 0 && listeDDRData.every(item => item.Status === 'A lancer');
+
+            if (allAreToLaunch) {
+                // Condition remplie : TOUT est "A lancer" -> Appliquer le ROUGE
+                $area.data('maphilight', redHighlightOptions).trigger('alwaysOn.maphilight');
+            } else {
+                // Condition non remplie : un statut est différent ou la liste est vide -> Appliquer le BLEU CIEL
+                $area.data('maphilight', permanentHighlightOptions).trigger('alwaysOn.maphilight');
+            }
+        }
+
+
         $(document).ready(function() {
             
-            // Paramètres de surbrillance
-            const hoverHighlightOptions = {
-                fillColor: '0078d7',    // Nouveau: Utilisation d'un bleu fort pour le survol
-                fillOpacity: 0.7,       // Opacité de survol 
-                stroke: true,
-                strokeColor: 'CC0000',  
-                strokeWidth: 3,         
-                fade: true
-            };
-            
-            // ÉTAT 1 : L'état par défaut (moins lumineux)
-            const permanentHighlightOptions = {
-                alwaysOn: true,
-                fillColor: 'B3E5FC', // Couleur de fond (Bleu clair)
-                fillOpacity: 0.4     // Opacité de l'état normal (plus claire)
-            };
-            
-            // ÉTAT 2 : L'état "enfoncé" (plus lumineux, persiste)
-            const selectedHighlightOptions = {
-                alwaysOn: true,
-                fillColor: '0078d7',    // Bleu opaque
-                fillOpacity: 1.0,       // Nouveau : Complètement opaque
-                stroke: true,
-                strokeColor: 'FFFFFF',  // Nouveau : Bordure blanche pour contraste
-                strokeWidth: 3,
-                fade: hoverHighlightOptions.fade
-            };
-            
-            // 1. Initialisation de MapHilight pour l'effet de survol
+            // 1. Initialisation de MapHilight pour l'effet de survol (définit les couleurs par défaut du hover)
             $('.map').maphilight(hoverHighlightOptions);
 
-            // 2. Affichage et gestion des titres au centre des zones
+            // 2. Affichage des titres et initialisation de l'état permanent (couleur conditionnelle)
             $('area[shape="circle"]').each(function() {
                 const $area = $(this);
                 const title = $area.attr('title');
@@ -235,8 +306,9 @@
                 // Ajout de l'étiquette dans le conteneur de la carte
                 $('#map-container').append($titleLabel);
 
-                // Initialisation de l'état permanent (dim) pour toutes les zones cliquables
-                $area.data('maphilight', permanentHighlightOptions).trigger('alwaysOn.maphilight');
+                // --- NOUVEAU: Appel de la fonction asynchrone pour la coloration initiale ---
+                checkBuildingStatusAndColor($area, title);
+                // ---------------------------------------------------------------------------
             });
 
 
@@ -248,42 +320,60 @@
                     if ($this.hasClass('area-selected')) {
                          return; 
                     }
-                    // Sinon, on enlève l'état permanent (0.4) pour laisser l'effet de survol standard (0.7) s'appliquer.
+                    // Sinon, on enlève l'état permanent pour laisser l'effet de survol standard s'appliquer.
                     $this.data('maphilight', { alwaysOn: false }).trigger('alwaysOn.maphilight');
                 })
                 .on('mouseleave', function() {
                     const $this = $(this);
-                    // Si c'est l'élément sélectionné, on ne fait rien, il doit rester à 1.0.
+                    // Si c'est l'élément sélectionné, on ne fait rien.
                     if ($this.hasClass('area-selected')) { 
                         return; 
                     }
-                    // Sinon, on rétablit l'état permanent (0.4).
-                    $this.data('maphilight', permanentHighlightOptions).trigger('alwaysOn.maphilight');
+                    // --- MODIFIÉ: Rétablissement de l'état permanent (Rouge ou Bleu) ---
+                    const buildingNumber = $this.attr('title');
+                    checkBuildingStatusAndColor($this, buildingNumber);
+                    // -------------------------------------------------------------------
                 });
             
             // 4. Gestion du Clic (Toggle/Multi-sélection)
-            $('area').on('click', function(e) {
+            $('area').on('click', async function(e) {
                 e.preventDefault(); 
                 const $this = $(this);
+                const buildingNumber = $this.attr('title');
 
                 if ($this.hasClass('area-selected')) {
                     // CAS 1 : La zone est déjà sélectionnée -> On la désélectionne (Toggle OFF)
                     $this.removeClass('area-selected');
-                    // On lui réapplique l'état permanent normal (0.4)
-                    $this.data('maphilight', permanentHighlightOptions).trigger('alwaysOn.maphilight');
+                    
+                    // --- MODIFIÉ: On lui réapplique l'état permanent (Rouge ou Bleu) ---
+                    await checkBuildingStatusAndColor($this, buildingNumber);
+                    
+                    // Masquer la modale
+                    $('#info-modale').fadeOut(200);
 
                 } else {
                     // CAS 2 : La zone n'est PAS sélectionnée -> On la sélectionne (Toggle ON)
                     
-                    // Multi-sélection : on n'affecte pas les autres zones
-                    
-                    // Marquer et appliquer l'état "enfoncé" (bleu opaque) à la nouvelle zone cliquée.
+                    // Appliquer l'état "enfoncé" (bleu opaque)
                     $this.addClass('area-selected');
                     $this.data('maphilight', selectedHighlightOptions).trigger('alwaysOn.maphilight');
+
+                    // --- NOUVEAU: Affichage de la Modale (Décommenté et adapté) ---
+                    const modaleTitle = `Statut DDR pour le Bâtiment ${buildingNumber}`;
+                    const statusDetails = `Détails sur les DDR du bâtiment ${buildingNumber} seront chargés ici après un autre appel Supabase...`;
+                    
+                    $('#batiment-id').text(buildingNumber);
+                    $('#batiment-titre').text(modaleTitle);
+                    $('#batiment-details').html(statusDetails);
+                    
+                    // Assurer que le style pour le cas de base soit masqué
+                    if ($('#info-modale p:first').text().includes('Cliquez sur un bâtiment')) {
+                        $('#info-modale p:first').text('');
+                    }
+
+                    $('#info-modale').fadeIn(200);
+                    // -----------------------------------------------------------
                 }
-                
-                // Le code pour ouvrir la modale est toujours commenté
-                /* ... code de la modale commenté ... */
             });
         });
     </script>
