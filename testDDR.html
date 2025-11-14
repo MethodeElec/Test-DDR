@@ -400,7 +400,7 @@
     window.logOut = logOut; 
 
     // ----------------------------------------------------------------------------------
-    // 2. Fonctions de Récupération des Données (Non modifiées)
+    // 2. Fonctions de Récupération des Données (MODIFIÉES)
     // ----------------------------------------------------------------------------------
 
     /**
@@ -420,14 +420,14 @@
         const { count: expiredDDR, error: expiredError } = await supabase
             .from('liste_ddr')
             .select('*', { count: 'exact', head: true })
-            .lt('Date prochain controle', new Date().toISOString().split('T')[0]); 
+            .lt('date_prochain_controle', new Date().toISOString().split('T')[0]); // <--- MODIFIÉ
 
         // 3. Total DDR à faire / testés cette année (Progression)
         const { count: ddrThisYear, error: ddrThisYearError } = await supabase
             .from('liste_ddr')
             .select('*', { count: 'exact', head: true })
-            .gte('Date prochain controle', startOfYear) 
-            .lte('Date prochain controle', endOfYear); 
+            .gte('date_prochain_controle', startOfYear) // <--- MODIFIÉ
+            .lte('date_prochain_controle', endOfYear); // <--- MODIFIÉ
 
         if (totalError || expiredError || ddrThisYearError || totalDDR === null || expiredDDR === null || ddrThisYear === null) {
             console.error('Erreur lors de la récupération des données de DDR:', totalError || expiredError || ddrThisYearError);
@@ -477,7 +477,7 @@
             let realPercentage = null; 
             let theoreticalPercentage = 0;
             
-            // --- LOGIQUE DE PROGRESSION THÉORIQUE (Date planifiee) : DYNAMIQUE ET CUMULÉE ---
+            // --- LOGIQUE DE PROGRESSION THÉORIQUE (date_planifiee) : DYNAMIQUE ET CUMULÉE ---
             
             // Borne à la fin du mois
             const plannedEndDateFilter = new Date(currentYear, month, 0).toISOString().split('T')[0];
@@ -486,8 +486,8 @@
             const { count: plannedUpToMonth, error: plannedError } = await supabase
                 .from('liste_ddr')
                 .select('*', { count: 'exact', head: true })
-                .lte('Date planifiee', plannedEndDateFilter)
-                .gte('Date planifiee', startOfYear); 
+                .lte('date_planifiee', plannedEndDateFilter) // <--- MODIFIÉ
+                .gte('date_planifiee', startOfYear); // <--- MODIFIÉ
 
             if (plannedError) {
                 console.error(`Erreur de récupération des données planifiées jusqu'au mois ${month}:`, plannedError);
@@ -495,7 +495,7 @@
                 theoreticalPercentage = (plannedUpToMonth || 0) / totalDDR * 100;
             }
 
-            // --- LOGIQUE DE PROGRESSION RÉELLE (Date de dernier controle) : DYNAMIQUE ET CUMULÉE ---
+            // --- LOGIQUE DE PROGRESSION RÉELLE (date_dernier_controle) : DYNAMIQUE ET CUMULÉE ---
 
             if (month <= currentMonth) {
                 // Pour les mois passés et le mois en cours
@@ -513,8 +513,8 @@
                 const { count: testedUpToMonth, error: realError } = await supabase
                     .from('liste_ddr')
                     .select('*', { count: 'exact', head: true })
-                    .lte('Date de dernier controle', realEndDateFilter)
-                    .gte('Date de dernier controle', startOfYear); 
+                    .lte('date_dernier_controle', realEndDateFilter) // <--- MODIFIÉ
+                    .gte('date_dernier_controle', startOfYear); // <--- MODIFIÉ
 
                 if (realError) {
                     console.error(`Erreur de récupération des données réelles jusqu'au mois ${month}:`, realError);
