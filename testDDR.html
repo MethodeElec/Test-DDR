@@ -213,7 +213,7 @@
   <div id="top-stats">
     
     <div id="conformite-block">
-        <div id="conformite-value">--,- %</div>
+        <div id="conformite-value">--,- %</div> 
         <div id="conformite-chart-container">
             <canvas id="conformiteChart"></canvas>
         </div>
@@ -228,11 +228,11 @@
             <div id="progression-ring-value" style="font-size: 1.6em; font-weight: bold; color: #333; margin-bottom: 5px;">PROGRESSION</div>
             <p>
                 <span class="data-label">DDR Répertorié :</span>
-                <span class="data-value" id="totalPlanifie">----</span>
+                <span class="data-value" id="totalPlanifie">----</span> 
             </p>
             <p style="margin-top: 5px;">
                 <span class="data-label">DDR Testé :</span>
-                <span class="data-value" id="totalTestes">----</span>
+                <span class="data-value" id="totalTestes">----</span> 
             </p>
         </div>
     </div>
@@ -289,9 +289,6 @@
       displayCurrentDate(); 
       
       const status = document.getElementById('status')
-      // const icon = document.getElementById('statusIcon') // Supprimé
-      // const label = document.getElementById('dbLabel') // Supprimé
-      // Récupération du nouveau conteneur de statut utilisateur
       const userStatusContainer = document.getElementById('userStatusContainer'); 
       
       // Nettoyer le contenu précédent du conteneur
@@ -309,7 +306,6 @@
         status.textContent = '' 
         status.style.backgroundColor = 'transparent'
         status.style.boxShadow = 'none' 
-        // Lignes de manipulation de l'icône et du label supprimées
         
         // --- 2. Vérification de l'utilisateur connecté et récupération du profil ---
         const { data: { session } } = await supabase.auth.getSession(); 
@@ -338,7 +334,7 @@
             // Couleur verte pour le nom (succès de connexion)
             userStatusContainer.style.color = 'green';
 
-            // Si connecté, afficher le nom + le bouton de déconnexion (MODIFIÉ: Plus de "Connecté:", plus de parenthèses)
+            // Si connecté, afficher le nom + le bouton de déconnexion
             const nameElement = document.createElement('strong');
             nameElement.textContent = displayName;
             
@@ -354,14 +350,14 @@
             // Si déconnecté, afficher UNIQUEMENT le bouton "Se déconnecter"
             userStatusContainer.style.color = 'red';
             const buttonElement = document.createElement('button');
-            buttonElement.textContent = 'Se déconnecter'; // Texte simplifié
+            buttonElement.textContent = 'Se déconnecter'; 
             buttonElement.className = 'logout-button'; 
             buttonElement.onclick = () => window.location.href = 'login.html';
             userStatusContainer.appendChild(buttonElement);
         }
 
         // Affichage du conteneur utilisateur
-        userStatusContainer.style.display = 'flex'; // Utiliser 'flex' pour l'alignement
+        userStatusContainer.style.display = 'flex'; 
         
         await initCharts(); 
 
@@ -371,28 +367,13 @@
         status.style.backgroundColor = '#ffdddd'
         status.style.boxShadow = '0 2px 5px rgba(0,0,0,0.1)'
         
-        // Statut DB: Échec (Rouge) - Lignes de manipulation de l'icône et du label supprimées
-        
         // Statut Utilisateur: Bouton de connexion/déconnexion en cas d'erreur
         userStatusContainer.style.color = 'red';
         // Afficher UNIQUEMENT le bouton "Se déconnecter"
         userStatusContainer.innerHTML = `<button class="logout-button" onclick="window.location.href='login.html'">Se déconnecter</button>`;
         userStatusContainer.style.display = 'flex';
         
-        // --- LOGIQUE DE SECOURS (FALLBACK) ---
-        const fallbackTheoretical = Array(12).fill(0); 
-        const fallbackReal = [
-            5, 15, 28, 32, 80, 82, 82, 82, 82, 87, null, null 
-        ];
-        
-        const evolutionDataFallback = fallbackReal.map((real, index) => ({
-            month: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'][index],
-            real: real, 
-            theoretical: fallbackTheoretical[index]
-        }));
-
-        // Utilise les valeurs de secours si la connexion échoue
-        renderCharts(86.7, 85.5, 3434, 2935, evolutionDataFallback);
+        // --- LOGIQUE DE SECOURS (FALLBACK) SUPPRIMÉE: LAISSE LES TIRETS DE L'HTML ---
       }
     }
     
@@ -400,7 +381,7 @@
     window.logOut = logOut; 
 
     // ----------------------------------------------------------------------------------
-    // 2. Fonctions de Récupération des Données (MODIFIÉES)
+    // 2. Fonctions de Récupération des Données (Colonnes Renommées)
     // ----------------------------------------------------------------------------------
 
     /**
@@ -420,21 +401,24 @@
         const { count: expiredDDR, error: expiredError } = await supabase
             .from('liste_ddr')
             .select('*', { count: 'exact', head: true })
-            .lt('date_prochain_controle', new Date().toISOString().split('T')[0]); // <--- MODIFIÉ
+            // Colonne MODIFIÉE: 'Date prochain controle' -> 'date_prochain_controle'
+            .lt('date_prochain_controle', new Date().toISOString().split('T')[0]); 
 
         // 3. Total DDR à faire / testés cette année (Progression)
         const { count: ddrThisYear, error: ddrThisYearError } = await supabase
             .from('liste_ddr')
             .select('*', { count: 'exact', head: true })
-            .gte('date_prochain_controle', startOfYear) // <--- MODIFIÉ
-            .lte('date_prochain_controle', endOfYear); // <--- MODIFIÉ
+            // Colonnes MODIFIÉES: 'Date prochain controle' -> 'date_prochain_controle'
+            .gte('date_prochain_controle', startOfYear) 
+            .lte('date_prochain_controle', endOfYear); 
 
         if (totalError || expiredError || ddrThisYearError || totalDDR === null || expiredDDR === null || ddrThisYear === null) {
             console.error('Erreur lors de la récupération des données de DDR:', totalError || expiredError || ddrThisYearError);
-            return null; 
+            return null; // Retourne null pour déclencher l'arrêt dans initCharts
         }
 
         if (totalDDR === 0) {
+            // Cas sans DDR dans la base: 100% conforme, 0% progression
             return { conformite: 100, progression: 0, totalDDR: 0, ddrThisYear: 0 };
         }
 
@@ -452,8 +436,7 @@
     }
     
     /**
-     * Récupère les données d'évolution réelle et théorique cumulées par mois, 
-     * toutes deux filtrées pour l'année en cours.
+     * Récupère les données d'évolution réelle et théorique cumulées par mois.
      */
     async function fetchEvolutionData(totalDDR) {
         if (totalDDR === 0) {
@@ -486,8 +469,9 @@
             const { count: plannedUpToMonth, error: plannedError } = await supabase
                 .from('liste_ddr')
                 .select('*', { count: 'exact', head: true })
-                .lte('date_planifiee', plannedEndDateFilter) // <--- MODIFIÉ
-                .gte('date_planifiee', startOfYear); // <--- MODIFIÉ
+                // Colonnes MODIFIÉES: 'Date planifiee' -> 'date_planifiee'
+                .lte('date_planifiee', plannedEndDateFilter)
+                .gte('date_planifiee', startOfYear); 
 
             if (plannedError) {
                 console.error(`Erreur de récupération des données planifiées jusqu'au mois ${month}:`, plannedError);
@@ -513,8 +497,9 @@
                 const { count: testedUpToMonth, error: realError } = await supabase
                     .from('liste_ddr')
                     .select('*', { count: 'exact', head: true })
-                    .lte('date_dernier_controle', realEndDateFilter) // <--- MODIFIÉ
-                    .gte('date_dernier_controle', startOfYear); // <--- MODIFIÉ
+                    // Colonnes MODIFIÉES: 'Date de dernier controle' -> 'date_dernier_controle'
+                    .lte('date_dernier_controle', realEndDateFilter)
+                    .gte('date_dernier_controle', startOfYear); 
 
                 if (realError) {
                     console.error(`Erreur de récupération des données réelles jusqu'au mois ${month}:`, realError);
@@ -536,39 +521,29 @@
     }
     
     // ----------------------------------------------------------------------------------
-    // 3. Fonction Principale d'Initialisation (Non modifiée)
+    // 3. Fonction Principale d'Initialisation (MODIFIÉE - Plus de Fallback)
     // ----------------------------------------------------------------------------------
 
     async function initCharts() {
         const conformiteData = await fetchConformiteData();
         
-        // Définition des données à utiliser (réelles ou statiques de repli)
-        const conformite = conformiteData ? conformiteData.conformite : 86.7; 
-        const progression = conformiteData ? conformiteData.progression : 85.5; 
-        const totalPlanifie = conformiteData ? conformiteData.totalDDR : 3434; // DDR Répertorié
-        const ddrThisYear = conformiteData ? conformiteData.ddrThisYear : 2935; // DDR Testé (Année en cours)
+        // SI LA RÉCUPÉRATION ÉCHOUE (conformiteData est null), on s'arrête ici.
+        if (!conformiteData) {
+            console.warn("Arrêt du rendu: Les données de conformité n'ont pas pu être chargées.");
+            return;
+        }
+
+        // Définition des données à utiliser (UNIQUEMENT celles de Supabase)
+        const conformite = conformiteData.conformite; 
+        const progression = conformiteData.progression; 
+        const totalPlanifie = conformiteData.totalDDR; // DDR Répertorié
+        const ddrThisYear = conformiteData.ddrThisYear; // DDR Testé (Année en cours)
         
         // Récupération des données d'évolution réelle et théorique DYNAMIQUES
-        const evolutionData = conformiteData 
-            ? await fetchEvolutionData(conformiteData.totalDDR) 
-            : null;
-
-        // --- LOGIQUE DE SECOURS (FALLBACK) EN CAS D'ÉCHEC DE fetchConformiteData ---
-        const fallbackTheoretical = Array(12).fill(0); 
-        const fallbackReal = [
-            5, 15, 28, 32, 80, 82, 82, 82, 82, 87, null, null
-        ];
-        
-        const evolutionDataFallback = fallbackReal.map((real, index) => ({
-            month: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'][index],
-            real: real, 
-            theoretical: fallbackTheoretical[index]
-        }));
-        // --------------------------------------------------------------------------------------
+        const evolutionData = await fetchEvolutionData(conformiteData.totalDDR);
         
         // Rendu des graphiques
-        // Utilise les données dynamiques si disponibles, sinon les données de secours
-        renderCharts(conformite, progression, totalPlanifie, ddrThisYear, evolutionData || evolutionDataFallback);
+        renderCharts(conformite, progression, totalPlanifie, ddrThisYear, evolutionData);
     }
 
     // ----------------------------------------------------------------------------------
@@ -670,7 +645,7 @@
                     },
                     {
                         label: 'Progression théorique',
-                        data: evolutionData.map(d => d.theoretical), // Données théoriques dynamiques (ou 0% si 2026)
+                        data: evolutionData.map(d => d.theoretical), // Données théoriques dynamiques
                         borderColor: primaryColor, backgroundColor: 'transparent',
                         borderDash: [5, 5], tension: 0.2, pointRadius: 0, borderWidth: 2
                     }
@@ -693,6 +668,12 @@
                 }
             }
         });
+        
+        // --- GESTION DU GRAPHIQUE D'ÉVOLUTION EN CAS D'ÉCHEC ---
+        // Si le chargement des données a échoué (conformiteData == null) ou si l'API a retourné une erreur 
+        // durant la récupération des données d'évolution, le code s'arrête plus tôt.
+        // Si la connexion a réussi mais que l'évolution a échoué (très rare), le graphique ne sera pas rendu,
+        // et le canvas restera vide (pas d'affichage de tirets possible dans le canvas lui-même).
     }
 
     testConnexion()
